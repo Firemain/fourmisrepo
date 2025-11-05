@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Profile {
+  id          String   @id @default(uuid())
+  role        Role
+  fullName    String?
+  avatarUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  missionsAsso    Mission[]      @relation("AssoMissions")
+  missionsSchool  Mission[]      @relation("SchoolMissions")
+  registrations   Registration[]
+
+  @@map("profiles")
+}
+
+model Mission {
+  id           String   @id @default(uuid())
+  title        String
+  description  String
+  hours        Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Relations
+  association   Profile        @relation("AssoMissions", fields: [associationId], references: [id], onDelete: Cascade)
+  associationId String
+  
+  school        Profile        @relation("SchoolMissions", fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolId      String
+  
+  registrations Registration[]
+
+  @@map("missions")
+}
+
+model Registration {
+  id         String   @id @default(uuid())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  status     Status   @default(pending)
+  
+  // Relations
+  mission    Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  missionId  String
+  
+  student    Profile  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId  String
+
+  @@unique([missionId, studentId])
+  @@map("registrations")
+}
+
+enum Role {
+  student
+  association
+  school
+  admin
+}
+
+enum Status {
+  pending
+  approved
+  rejected
+}
