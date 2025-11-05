@@ -31,9 +31,9 @@ Fourmis est une plateforme de valorisation de l'engagement étudiant qui connect
 - highlight: #D6955B
 
 ## Scripts disponibles
-- `npm run dev:site`: Lancer le site vitrine
-- `npm run dev:web`: Lancer la web app
-- `npm run dev:mobile`: Lancer l'app mobile
-- `npm run db:migrate`: Migrer la base de données
-- `npm run build`: Build toutes les apps
-- `npm run lint`: Linter le code
+- `pnpm dev:site`: Lancer le site vitrine
+- `pnpm dev:web`: Lancer la web app
+- `pnpm dev:mobile`: Lancer l'app mobile
+- `pnpm db:migrate`: Migrer la base de données
+- `pnpm build`: Build toutes les apps
+- `pnpm lint`: Linter le code
