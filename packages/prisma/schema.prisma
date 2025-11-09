@@ -1,74 +1,343 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
-model Profile {
-  id          String   @id @default(uuid())
-  role        Role
-  fullName    String?
-  avatarUrl   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Relations
-  missionsAsso    Mission[]      @relation("AssoMissions")
-  missionsSchool  Mission[]      @relation("SchoolMissions")
-  registrations   Registration[]
+// ============================================
+// ENUMS
+// ============================================
 
-  @@map("profiles")
+enum UserRole {
+  STUDENT
+  ASSOCIATION
+  SCHOOL
+  ADMIN
+}
+
+enum SchoolType {
+  PRIMARY
+  SECONDARY
+  HIGH_SCHOOL
+  UNIVERSITY
+  OTHER
+}
+
+enum SchoolStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+}
+
+enum MemberType {
+  STUDENT
+  STAFF
+}
+
+enum MemberStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+}
+
+enum AssociationStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+}
+
+enum MissionStatus {
+  DRAFT
+  PUBLISHED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum RecurrenceType {
+  NONE
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum RegistrationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+// ============================================
+// MODELS
+// ============================================
+
+// User Profile - Lien entre Supabase Auth et nos données métier
+model UserProfile {
+  id          String   @id @default(uuid())
+  userId      String   @unique @map("user_id") @db.Uuid // Référence à auth.users de Supabase
+  email       String   @unique
+  fullName    String?  @map("full_name")
+  role        UserRole
+  avatarUrl   String?  @map("avatar_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations conditionnelles selon le rôle
+  schoolMember      SchoolMember?
+  associationMember AssociationMember?
+  schoolAdmin       SchoolAdmin?
+
+  @@map("user_profiles")
+}
+
+model Contact {
+  id               String   @id @default(uuid())
+  country          String
+  city             String
+  postalCode       String   @map("postal_code")
+  street           String
+  apartmentNumber  String?  @map("apartment_number")
+  phoneNumber      String?  @map("phone_number")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  schools               School[]
+  schoolAdmins          SchoolAdmin[]
+  schoolMembers         SchoolMember[]
+  associations          Association[]
+  associationMembers    AssociationMember[]
+
+  @@map("contacts")
+}
+
+model School {
+  id         String       @id @default(uuid())
+  name       String
+  contactId  String       @map("contact_id")
+  type       SchoolType
+  status     SchoolStatus @default(ACTIVE)
+  createdAt  DateTime     @default(now()) @map("created_at")
+  updatedAt  DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  contact       Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  admins        SchoolAdmin[]
+  members       SchoolMember[]
+  academicLevels RefAcademicLevel[]
+
+  @@map("schools")
+}
+
+model SchoolAdmin {
+  id            String    @id @default(uuid())
+  schoolId      String    @map("school_id")
+  firstName     String    @map("first_name")
+  lastName      String    @map("last_name")
+  contactId     String    @map("contact_id")
+  email         String    @unique
+  userProfileId String?   @unique @map("user_profile_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  // Relations
+  school      School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  contact     Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  userProfile UserProfile? @relation(fields: [userProfileId], references: [id], onDelete: SetNull)
+
+  @@map("school_admins")
+}
+
+model RefAcademicLevel {
+  id          String   @id @default(uuid())
+  displayName String   @map("display_name")
+  schoolId    String   @map("school_id")
+  name        String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  school        School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolMembers SchoolMember[]
+
+  @@map("ref_academic_levels")
+}
+
+model SchoolMember {
+  id               String       @id @default(uuid())
+  schoolId         String       @map("school_id")
+  firstName        String       @map("first_name")
+  lastName         String       @map("last_name")
+  type             MemberType
+  academicLevelId  String       @map("academic_level_id")
+  contactId        String       @map("contact_id")
+  email            String
+  userProfileId    String?      @unique @map("user_profile_id")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  school               School                @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicLevel        RefAcademicLevel      @relation(fields: [academicLevelId], references: [id], onDelete: Cascade)
+  contact              Contact               @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  userProfile          UserProfile?          @relation(fields: [userProfileId], references: [id], onDelete: SetNull)
+  missionRegistrations MissionRegistration[]
+
+  @@map("school_members")
+}
+
+model Association {
+  id          String            @id @default(uuid())
+  name        String
+  description String?           @db.Text
+  logoUrl     String?           @map("logo_url")
+  siteUrl     String?           @map("site_url")
+  status      AssociationStatus @default(ACTIVE)
+  email       String?
+  contactId   String?           @map("contact_id")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  contact  Contact?            @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  members  AssociationMember[]
+  missions Mission[]
+  tags     AssociationTags[]
+
+  @@map("associations")
+}
+
+model AssociationMember {
+  id            String       @id @default(uuid())
+  associationId String       @map("association_id")
+  firstName     String       @map("first_name")
+  lastName      String       @map("last_name")
+  status        MemberStatus @default(ACTIVE)
+  contactId     String       @map("contact_id")
+  email         String
+  userProfileId String?      @unique @map("user_profile_id")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  association Association  @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  contact     Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  userProfile UserProfile? @relation(fields: [userProfileId], references: [id], onDelete: SetNull)
+  missions    Mission[]
+
+  @@map("association_members")
 }
 
 model Mission {
-  id           String   @id @default(uuid())
-  title        String
-  description  String
-  hours        Int
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  
+  id                   String          @id @default(uuid())
+  associationId        String          @map("association_id")
+  associationMemberId  String          @map("association_member_id")
+  title                String
+  description          String?         @db.Text
+  startAt              DateTime        @map("start_at")
+  endAt                DateTime        @map("end_at")
+  maximumParticipant   Int?            @map("maximum_participant")
+  recurrenceType       RecurrenceType  @default(NONE) @map("recurrence_type")
+  duration             Int?            // Duration in minutes
+  status               MissionStatus   @default(DRAFT)
+  createdAt            DateTime        @default(now()) @map("created_at")
+  updatedAt            DateTime        @updatedAt @map("updated_at")
+
   // Relations
-  association   Profile        @relation("AssoMissions", fields: [associationId], references: [id], onDelete: Cascade)
-  associationId String
-  
-  school        Profile        @relation("SchoolMissions", fields: [schoolId], references: [id], onDelete: Cascade)
-  schoolId      String
-  
-  registrations Registration[]
+  association          Association           @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  associationMember    AssociationMember     @relation(fields: [associationMemberId], references: [id], onDelete: Cascade)
+  registrations        MissionRegistration[]
+  tags                 MissionTags[]
 
   @@map("missions")
 }
 
-model Registration {
-  id         String   @id @default(uuid())
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  status     Status   @default(pending)
-  
+model MissionRegistration {
+  id              String             @id @default(uuid())
+  missionId       String             @map("mission_id")
+  schoolMemberId  String             @map("school_member_id")
+  status          RegistrationStatus @default(PENDING)
+  feedback        String?            @db.Text
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
   // Relations
-  mission    Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
-  missionId  String
-  
-  student    Profile  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  studentId  String
+  mission      Mission       @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  schoolMember SchoolMember  @relation(fields: [schoolMemberId], references: [id], onDelete: Cascade)
 
-  @@unique([missionId, studentId])
-  @@map("registrations")
+  @@unique([missionId, schoolMemberId])
+  @@map("mission_registrations")
 }
 
-enum Role {
-  student
-  association
-  school
-  admin
+// ============================================
+// TAG MODELS
+// ============================================
+
+model MissionTag {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  missions MissionTags[]
+
+  @@map("mission_tags")
 }
 
-enum Status {
-  pending
-  approved
-  rejected
+model MissionTags {
+  missionId String @map("mission_id")
+  tagId     String @map("tag_id")
+
+  mission Mission    @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  tag     MissionTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([missionId, tagId])
+  @@map("mission_tags_relation")
+}
+
+model AssociationTag {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  associations AssociationTags[]
+
+  @@map("association_tags")
+}
+
+model AssociationTags {
+  associationId String @map("association_id")
+  tagId         String @map("tag_id")
+
+  association Association    @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  tag         AssociationTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([associationId, tagId])
+  @@map("association_tags_relation")
+}
+
+// ============================================
+// ODD (Objectifs de Développement Durable)
+// ============================================
+
+model ODD {
+  id          String   @id @default(uuid())
+  name        String
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("odds")
 }

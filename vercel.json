@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/app",
+      "destination": "https://fourmis-app.vercel.app"
+    },
+    {
+      "source": "/app/:path*",
+      "destination": "https://fourmis-app.vercel.app/:path*"
+    }
+  ]
+}

@@ -6,6 +6,7 @@ import Link from "next/link";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const webAppUrl = process.env.NEXT_PUBLIC_WEB_APP_URL || 'http://localhost:3001';
 
   const navItems = [
     { href: "#concept", label: "Concept" },
@@ -45,12 +46,14 @@ const Header = () => {
 
           {/* CTA Button */}
           <div className="hidden md:flex items-center space-x-4">
-            <Link
-              href="/login"
+            <a
+              href={`${webAppUrl}/login`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="bg-forest-green text-white px-6 py-2 rounded-full hover:bg-light-green hover:text-forest-green transition-all duration-300 transform hover:scale-105 font-medium"
             >
               Se connecter
-            </Link>
+            </a>
           </div>
 
           {/* Mobile menu button */}
@@ -69,20 +72,22 @@ const Header = () => {
               {navItems.map((item) => (
                 <a
                   key={item.href}
-                  href="/login"
+                  href={item.href}
                   className="text-forest-green hover:text-light-green transition-colors font-medium"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   {item.label}
                 </a>
               ))}
-              <Link
-                href="/dashboard/student"
+              <a
+                href={`${webAppUrl}/login`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="bg-forest-green text-white px-6 py-2 rounded-full hover:bg-light-green hover:text-forest-green transition-all duration-300 text-center font-medium"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Se connecter
-              </Link>
+              </a>
             </nav>
           </div>
         )}

@@ -2,9 +2,11 @@
 
 import { motion } from "framer-motion";
 import { ArrowRight, Users, Target, Award } from "lucide-react";
-import Link from "next/link";
 
 export default function HeroSection() {
+  // En dev: localhost:3001, en prod: /app
+  const webAppUrl = process.env.NEXT_PUBLIC_WEB_APP_URL || 'http://localhost:3001';
+  
   return (
     <section className="relative min-h-screen bg-gradient-to-br from-cream via-light-beige to-light-green overflow-hidden">
       {/* Background decorative elements */}
@@ -61,24 +63,26 @@ export default function HeroSection() {
               transition={{ delay: 0.8, duration: 0.6 }}
               className="flex flex-col sm:flex-row gap-4"
             >
-              <Link href="/onboarding">
+              <a href={`${webAppUrl}/login`} target="_blank" rel="noopener noreferrer">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   className="group bg-forest-green text-white px-8 py-4 rounded-full font-semibold text-lg flex items-center gap-3 hover:bg-forest-green/90 transition-all duration-300 shadow-lg hover:shadow-xl"
                 >
-                  Commencer l'aventure
+                  Commencer l&apos;aventure
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </motion.button>
-              </Link>
+              </a>
               
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="border-2 border-forest-green text-forest-green px-8 py-4 rounded-full font-semibold text-lg hover:bg-forest-green hover:text-white transition-all duration-300"
-              >
-                En savoir plus
-              </motion.button>
+              <a href="#concept">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="border-2 border-forest-green text-forest-green px-8 py-4 rounded-full font-semibold text-lg hover:bg-forest-green hover:text-white transition-all duration-300"
+                >
+                  En savoir plus
+                </motion.button>
+              </a>
             </motion.div>
 
             {/* Stats */}
