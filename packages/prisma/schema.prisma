@@ -94,8 +94,34 @@ model UserProfile {
   schoolMember      SchoolMember?
   associationMember AssociationMember?
   schoolAdmin       SchoolAdmin?
+  studentPreferences StudentPreferences?
 
   @@map("user_profiles")
+}
+
+// Student Preferences - Pour le Machine Learning et les recommandations
+model StudentPreferences {
+  id            String   @id @default(uuid())
+  userId        String   @unique @map("user_id") @db.Uuid // Référence à auth.users de Supabase
+  userProfileId String   @unique @map("user_profile_id")
+  
+  // Préférences structurées
+  interests     String[] // Domaines d'intérêt (multi-select)
+  availability  String?  // Disponibilité habituelle
+  groupSize     String?  // Préférence de taille de groupe
+  
+  // Swipes de missions (pour ML collaborative filtering)
+  missionSwipes Json?    @map("mission_swipes") // [{ missionId: string, liked: boolean, timestamp: string }]
+  
+  // Métadonnées
+  completedAt   DateTime? @map("completed_at") // Date de completion du questionnaire
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  userProfile UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+
+  @@map("student_preferences")
 }
 
 model Contact {
