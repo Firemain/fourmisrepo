@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale } from '@/lib/i18n/LocaleContext';
 import { createClient } from '@/lib/supabase/client';
@@ -30,9 +30,9 @@ import {
 } from 'lucide-react';
 
 interface MissionDetailPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 interface Mission {
@@ -55,7 +55,7 @@ interface Mission {
 export default function MissionDetailPage({ params }: MissionDetailPageProps) {
   const { locale } = useLocale();
   const router = useRouter();
-  const { id } = params;
+  const { id } = use(params); // Unwrap the Promise with React.use()
   const [mission, setMission] = useState<Mission | null>(null);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -369,7 +369,7 @@ export default function MissionDetailPage({ params }: MissionDetailPageProps) {
           <h3 className="text-xl font-semibold text-gray-900 mb-2">Mission introuvable</h3>
           <button
             onClick={() => router.back()}
-            className="mt-4 px-6 py-3 bg-[#18534F] text-white rounded-lg hover:bg-[#226D68] transition-colors"
+            className="mt-4 px-6 py-3 bg-[#18534F] text-white rounded-lg hover:bg-[#226D68] transition-colors cursor-pointer"
           >
             {text.back}
           </button>
@@ -384,7 +384,7 @@ export default function MissionDetailPage({ params }: MissionDetailPageProps) {
       <div className="mb-6">
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-2 text-gray-600 hover:text-[#18534F] mb-4 transition-colors"
+          className="flex items-center gap-2 text-gray-600 hover:text-[#18534F] mb-4 transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-5 h-5" />
           {text.back}
