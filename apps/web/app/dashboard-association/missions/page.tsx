@@ -7,7 +7,8 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { 
   Plus,
-  Search,
+  Search,git pull origin main
+
   Filter,
   Calendar,
   Clock,
