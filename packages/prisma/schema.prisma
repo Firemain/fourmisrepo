@@ -269,6 +269,7 @@ model Mission {
   associationMemberId  String          @map("association_member_id")
   title                String
   description          String?         @db.Text
+  address              String?         // Adresse ou lieu de la mission
   startAt              DateTime        @map("start_at")
   endAt                DateTime        @map("end_at")
   maximumParticipant   Int?            @map("maximum_participant")

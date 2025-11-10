@@ -39,7 +39,7 @@ export default function AssociationSidebar({ locale }: AssociationSidebarProps) 
     { href: '/dashboard-association/members', icon: Users, label: t.members },
     { href: '/dashboard-association/missions', icon: Target, label: t.missions },
     { href: '/dashboard-association/events', icon: Calendar, label: t.events },
-    { href: '/dashboard-association/settings', icon: Settings, label: t.settings },
+    { href: '/dashboard-association/parametres', icon: Settings, label: t.settings },
   ];
 
   return (
