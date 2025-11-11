@@ -21,7 +21,7 @@ export default async function AssociationMissionsPage() {
     .single();
 
   if (!userProfile) {
-    redirect('/onboarding');
+    redirect('/login');
   }
 
   // 3. Récupérer l'association_member
@@ -31,12 +31,15 @@ export default async function AssociationMissionsPage() {
     .eq('user_profile_id', userProfile.id)
     .single();
 
+  // Note: La vérification de associationMember est faite dans le layout.tsx
+  // Si on arrive ici, c'est qu'on a les permissions
+  
   if (!associationMember) {
     return (
       <div className="p-8">
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
           <p className="text-yellow-800">
-            Vous devez être membre d'une association pour accéder à cette page.
+            Erreur : impossible de récupérer vos informations d'association.
           </p>
         </div>
       </div>

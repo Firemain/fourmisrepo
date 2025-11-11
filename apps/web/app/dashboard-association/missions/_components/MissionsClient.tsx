@@ -36,6 +36,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { CreateMissionModal } from './CreateMissionModal';
 import { MissionActionsDropdown } from '@/components/missions/MissionActionsDropdown';
 import { DeleteMissionDialog } from '@/components/missions/DeleteMissionDialog';
+import { EditMissionModal } from '@/components/missions/EditMissionModal';
 
 interface Mission {
   id: string;
@@ -86,6 +87,7 @@ export function MissionsClient({
   const [showMyMissionsOnly, setShowMyMissionsOnly] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [missionToDelete, setMissionToDelete] = useState<{ id: string; title: string } | null>(null);
+  const [missionToEdit, setMissionToEdit] = useState<Mission | null>(null);
 
   const t = {
     fr: {
@@ -500,8 +502,7 @@ export function MissionsClient({
                         missionId={mission.id}
                         locale={locale}
                         onEdit={() => {
-                          // TODO: Implémenter la modification
-                          console.log('Edit mission', mission.id);
+                          setMissionToEdit(mission);
                         }}
                         onDelete={() => {
                           setMissionToDelete({ id: mission.id, title: mission.title });
@@ -538,6 +539,22 @@ export function MissionsClient({
             if (!open) setMissionToDelete(null);
           }}
           locale={locale}
+        />
+      )}
+
+      {/* Edit mission modal */}
+      {missionToEdit && (
+        <EditMissionModal
+          mission={missionToEdit}
+          associationId={associationId}
+          currentMemberId={currentMemberId}
+          onClose={() => {
+            setMissionToEdit(null);
+          }}
+          onSuccess={() => {
+            setMissionToEdit(null);
+            router.refresh();
+          }}
         />
       )}
     </div>
