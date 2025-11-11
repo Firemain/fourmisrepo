@@ -52,13 +52,29 @@ interface Mission {
   created_at: string;
 }
 
+interface RegistrationStats {
+  totalRegistrations: number;
+  completedRegistrations: number;
+  registrationsByMission: Record<string, {
+    total: number;
+    completed: number;
+    confirmed: number;
+  }>;
+}
+
 interface MissionsClientProps {
   initialMissions: Mission[];
   associationId: string;
   currentMemberId: string;
+  registrationStats: RegistrationStats;
 }
 
-export function MissionsClient({ initialMissions, associationId, currentMemberId }: MissionsClientProps) {
+export function MissionsClient({ 
+  initialMissions, 
+  associationId, 
+  currentMemberId,
+  registrationStats,
+}: MissionsClientProps) {
   const { locale } = useLocale();
   const router = useRouter();
   const missions = initialMissions; // Server-fetched data, revalidated on router.refresh()
@@ -218,8 +234,10 @@ export function MissionsClient({ initialMissions, associationId, currentMemberId
   const stats = {
     total: missions.length,
     active: missions.filter(m => m.status === 'PUBLISHED').length,
-    participants: missions.reduce((acc, m) => acc + (m.maximum_participant || 0), 0),
-    completionRate: 85, // À calculer avec les vraies données
+    participants: registrationStats.totalRegistrations,
+    completionRate: registrationStats.totalRegistrations > 0 
+      ? Math.round((registrationStats.completedRegistrations / registrationStats.totalRegistrations) * 100)
+      : 0,
   };
 
   // Missions filtrées
