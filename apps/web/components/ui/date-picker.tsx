@@ -95,14 +95,27 @@ export function DatePicker({
   }
 
   const handleDayClick = (day: number) => {
-    const newDate = new Date(selectedYear, selectedMonth, day, parseInt(hours), parseInt(minutes))
-    setSelectedDate(newDate)
+    const clickedDate = new Date(selectedYear, selectedMonth, day, parseInt(hours), parseInt(minutes))
+    
+    // Si on clique sur le jour déjà sélectionné, on désélectionne
+    if (selectedDate && 
+        selectedDate.getDate() === day &&
+        selectedDate.getMonth() === selectedMonth &&
+        selectedDate.getFullYear() === selectedYear) {
+      setSelectedDate(undefined)
+      onDateChange?.(undefined)
+      setOpen(false)
+      return
+    }
+    
+    // Sinon on sélectionne la nouvelle date
+    setSelectedDate(clickedDate)
     if (!withTime) {
-      onDateChange?.(newDate)
+      onDateChange?.(clickedDate)
       setOpen(false)
     } else {
       // Avec heure : on met à jour aussi
-      onDateChange?.(newDate)
+      onDateChange?.(clickedDate)
     }
   }
 
@@ -143,19 +156,19 @@ export function DatePicker({
         <Button
           variant={"outline"}
           className={cn(
-            "w-full justify-start text-left font-normal h-11",
-            !date && "text-muted-foreground",
+            "w-full justify-start text-left font-medium h-11 border-2 border-gray-300 bg-white rounded-lg shadow-sm transition-all hover:border-[#226D68] focus:border-[#18534F] focus:outline-none focus:ring-2 focus:ring-[#18534F]/20",
+            !date && "text-gray-500",
             className
           )}
           disabled={disabled}
         >
-          <CalendarIcon className="mr-2 h-4 w-4" />
+          <CalendarIcon className="mr-2 h-4 w-4 text-[#18534F]" />
           {date ? (
-            <span>
+            <span className="text-sm">
               {format(date, withTime ? "PPP 'à' HH:mm" : "PPP", { locale: selectedLocale })}
             </span>
           ) : (
-            <span>{placeholder}</span>
+            <span className="text-sm">{placeholder}</span>
           )}
         </Button>
       </PopoverTrigger>
