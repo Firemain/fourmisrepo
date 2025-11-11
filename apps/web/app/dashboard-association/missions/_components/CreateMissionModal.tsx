@@ -37,7 +37,12 @@ export function CreateMissionModal({ associationId, currentMemberId, onClose, on
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    address: '',
+    // Champs pour le contact/adresse
+    street: '',
+    apartmentNumber: '',
+    city: '',
+    postalCode: '',
+    country: 'France',
     start_at: undefined as Date | undefined,
     end_at: undefined as Date | undefined,
     start_time: '',
@@ -56,13 +61,22 @@ export function CreateMissionModal({ associationId, currentMemberId, onClose, on
       newMission: 'Nouvelle Mission',
       missionTitle: 'Titre de la mission',
       missionDescription: 'Description',
-      addressLabel: 'Adresse / Lieu',
-      addressPlaceholder: 'Ex: 123 Rue de la République, 75001 Paris',
+      addressSection: 'Adresse de la mission',
+      street: 'Rue',
+      streetPlaceholder: '123 Rue de la République',
+      apartmentNumber: 'Numéro d\'appartement / Complément',
+      apartmentPlaceholder: 'Bâtiment A, Étage 2...',
+      city: 'Ville',
+      cityPlaceholder: 'Paris',
+      postalCode: 'Code postal',
+      postalCodePlaceholder: '75001',
+      country: 'Pays',
+      phonePlaceholder: '+33 6 12 34 56 78',
       memberLabel: 'Membre responsable',
       memberPlaceholder: 'Sélectionner un membre',
       memberHelp: 'Ce membre sera le contact principal pour cette mission',
       recurrenceType: 'Récurrence',
-      recurrenceNone: 'Aucune (mission ponctuelle)',
+      recurrenceNone: 'Ponctuelle',
       recurrenceDaily: 'Quotidienne',
       recurrenceWeekly: 'Hebdomadaire',
       recurrenceMonthly: 'Mensuelle',
@@ -91,13 +105,22 @@ export function CreateMissionModal({ associationId, currentMemberId, onClose, on
       newMission: 'New Mission',
       missionTitle: 'Mission Title',
       missionDescription: 'Description',
-      addressLabel: 'Address / Location',
-      addressPlaceholder: 'Ex: 123 Main Street, Paris',
+      addressSection: 'Mission Address',
+      street: 'Street',
+      streetPlaceholder: '123 Main Street',
+      apartmentNumber: 'Apartment / Additional info',
+      apartmentPlaceholder: 'Building A, Floor 2...',
+      city: 'City',
+      cityPlaceholder: 'Paris',
+      postalCode: 'Postal Code',
+      postalCodePlaceholder: '75001',
+      country: 'Country',
+      phonePlaceholder: '+33 6 12 34 56 78',
       memberLabel: 'Responsible member',
       memberPlaceholder: 'Select a member',
       memberHelp: 'This member will be the main contact for this mission',
       recurrenceType: 'Recurrence',
-      recurrenceNone: 'None (one-time mission)',
+      recurrenceNone: 'One-time mission',
       recurrenceDaily: 'Daily',
       recurrenceWeekly: 'Weekly',
       recurrenceMonthly: 'Monthly',
@@ -169,7 +192,32 @@ export function CreateMissionModal({ associationId, currentMemberId, onClose, on
     setError('');
 
     try {
-      // Combiner la date et l'heure
+      // 1. Générer un ID pour le contact
+      const contactId = crypto.randomUUID();
+
+      // 2. Créer d'abord le contact avec l'adresse
+      const { data: contactData, error: contactError } = await supabase
+        .from('contacts')
+        .insert({
+          id: contactId,
+          street: formData.street,
+          apartment_number: formData.apartmentNumber || null,
+          city: formData.city,
+          postal_code: formData.postalCode,
+          country: formData.country,
+          phone_number: formData.phoneNumber || null,
+        })
+        .select('id')
+        .single();
+
+      if (contactError || !contactData) {
+        console.error('Error creating contact:', contactError);
+        setError(contactError?.message || 'Erreur lors de la création du contact');
+        setLoading(false);
+        return;
+      }
+
+      // 2. Combiner la date et l'heure
       let startDateTime = formData.start_at;
       if (startDateTime && formData.start_time) {
         const [hours, minutes] = formData.start_time.split(':');
@@ -177,14 +225,19 @@ export function CreateMissionModal({ associationId, currentMemberId, onClose, on
         startDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
       }
 
+      // 3. Générer un ID pour la mission
+      const missionId = crypto.randomUUID();
+
+      // 4. Créer la mission avec le contact_id
       const { error: insertError } = await supabase
         .from('missions')
         .insert({
+          id: missionId,
           association_id: associationId,
           association_member_id: formData.association_member_id,
+          contact_id: contactData.id,
           title: formData.title,
           description: formData.description || null,
-          address: formData.address || null,
           start_at: startDateTime?.toISOString(),
           end_at: formData.end_at?.toISOString() || null,
           duration: formData.duration ? parseInt(formData.duration) : null,
@@ -280,19 +333,67 @@ export function CreateMissionModal({ associationId, currentMemberId, onClose, on
             />
           </div>
 
-          {/* Adresse */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {text.addressLabel} *
-            </label>
-            <Input
-              type="text"
-              required
-              value={formData.address}
-              onChange={(e: any) => setFormData({ ...formData, address: e.target.value })}
-              placeholder={text.addressPlaceholder}
-              className="h-11"
-            />
+          {/* Adresse - Section complète */}
+          <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <h3 className="font-semibold text-gray-900">{text.addressSection}</h3>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {text.street} *
+              </label>
+              <Input
+                type="text"
+                required
+                value={formData.street}
+                onChange={(e: any) => setFormData({ ...formData, street: e.target.value })}
+                placeholder={text.streetPlaceholder}
+                className="h-11"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {text.city} *
+                </label>
+                <Input
+                  type="text"
+                  required
+                  value={formData.city}
+                  onChange={(e: any) => setFormData({ ...formData, city: e.target.value })}
+                  placeholder={text.cityPlaceholder}
+                  className="h-11"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {text.postalCode} *
+                </label>
+                <Input
+                  type="text"
+                  required
+                  value={formData.postalCode}
+                  onChange={(e: any) => setFormData({ ...formData, postalCode: e.target.value })}
+                  placeholder={text.postalCodePlaceholder}
+                  className="h-11"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {text.country} *
+              </label>
+              <Input
+                type="text"
+                required
+                value={formData.country}
+                onChange={(e: any) => setFormData({ ...formData, country: e.target.value })}
+                className="h-11"
+              />
+            </div>
+
           </div>
 
           {/* Membre responsable */}
