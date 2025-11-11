@@ -10,12 +10,8 @@ import {
   Clock,
   Users,
   MapPin,
-  Edit,
-  Trash2,
-  MoreVertical,
   Target,
   CheckCircle,
-  Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,16 +30,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { DatePicker } from '@/components/ui/date-picker';
 import { CreateMissionModal } from './CreateMissionModal';
+import { MissionActionsDropdown } from '@/components/missions/MissionActionsDropdown';
+import { DeleteMissionDialog } from '@/components/missions/DeleteMissionDialog';
+import { EditMissionModal } from '@/components/missions/EditMissionModal';
 
 interface Mission {
   id: string;
@@ -56,22 +49,45 @@ interface Mission {
   duration: number | null;
   status: string;
   recurrence_type: string;
+  association_member_id: string;
   created_at: string;
+}
+
+interface RegistrationStats {
+  totalRegistrations: number;
+  completedRegistrations: number;
+  registrationsByMission: Record<string, {
+    total: number;
+    completed: number;
+    confirmed: number;
+  }>;
 }
 
 interface MissionsClientProps {
   initialMissions: Mission[];
   associationId: string;
   currentMemberId: string;
+  registrationStats: RegistrationStats;
 }
 
-export function MissionsClient({ initialMissions, associationId, currentMemberId }: MissionsClientProps) {
+export function MissionsClient({ 
+  initialMissions, 
+  associationId, 
+  currentMemberId,
+  registrationStats,
+}: MissionsClientProps) {
   const { locale } = useLocale();
   const router = useRouter();
   const missions = initialMissions; // Server-fetched data, revalidated on router.refresh()
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterRecurrence, setFilterRecurrence] = useState('all');
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [showMyMissionsOnly, setShowMyMissionsOnly] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [missionToDelete, setMissionToDelete] = useState<{ id: string; title: string } | null>(null);
+  const [missionToEdit, setMissionToEdit] = useState<Mission | null>(null);
 
   const t = {
     fr: {
@@ -82,6 +98,12 @@ export function MissionsClient({ initialMissions, associationId, currentMemberId
       search: 'Rechercher une mission...',
       filterStatus: 'Filtrer par statut',
       allStatus: 'Tous les statuts',
+      myMissions: 'Mes missions',
+      filterDate: 'Date',
+      filterRecurrence: 'Type de récurrence',
+      allRecurrences: 'Tous les types',
+      oneTime: 'Ponctuelle',
+      recurring: 'Récurrente',
       
       // Stats
       totalMissions: 'Total missions',
@@ -123,6 +145,12 @@ export function MissionsClient({ initialMissions, associationId, currentMemberId
       search: 'Search for a mission...',
       filterStatus: 'Filter by status',
       allStatus: 'All statuses',
+      myMissions: 'My missions',
+      filterDate: 'Date',
+      filterRecurrence: 'Recurrence type',
+      allRecurrences: 'All types',
+      oneTime: 'One-time',
+      recurring: 'Recurring',
       
       totalMissions: 'Total Missions',
       activeMissions: 'Active Missions',
@@ -208,15 +236,41 @@ export function MissionsClient({ initialMissions, associationId, currentMemberId
   const stats = {
     total: missions.length,
     active: missions.filter(m => m.status === 'PUBLISHED').length,
-    participants: missions.reduce((acc, m) => acc + (m.maximum_participant || 0), 0),
-    completionRate: 85, // À calculer avec les vraies données
+    participants: registrationStats.totalRegistrations,
+    completionRate: registrationStats.totalRegistrations > 0 
+      ? Math.round((registrationStats.completedRegistrations / registrationStats.totalRegistrations) * 100)
+      : 0,
   };
 
   // Missions filtrées
-  const filteredMissions = missions.filter(mission => 
-    (filterStatus === 'all' || mission.status === filterStatus) &&
-    (searchQuery === '' || mission.title.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredMissions = missions.filter(mission => {
+    const missionDate = new Date(mission.start_at);
+    
+    // Filtre par statut
+    if (filterStatus !== 'all' && mission.status !== filterStatus) return false;
+    
+    // Filtre par recherche
+    if (searchQuery !== '' && !mission.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    
+    // Filtre mes missions
+    if (showMyMissionsOnly && mission.association_member_id !== currentMemberId) return false;
+    
+    // Filtre par date sélectionnée
+    if (selectedDate) {
+      const selectedDay = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+      const missionDay = new Date(missionDate.getFullYear(), missionDate.getMonth(), missionDate.getDate());
+      
+      if (missionDay.getTime() !== selectedDay.getTime()) return false;
+    }
+    
+    // Filtre par récurrence
+    if (filterRecurrence !== 'all') {
+      if (filterRecurrence === 'oneTime' && mission.recurrence_type !== 'NONE') return false;
+      if (filterRecurrence === 'recurring' && mission.recurrence_type === 'NONE') return false;
+    }
+    
+    return true;
+  });
 
   const handleMissionCreated = () => {
     setShowCreateModal(false);
@@ -291,8 +345,9 @@ export function MissionsClient({ initialMissions, associationId, currentMemberId
 
       {/* Filtres */}
       <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-          <div className="flex-1 max-w-md">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Recherche */}
+          <div className="w-64">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <Input
@@ -305,8 +360,9 @@ export function MissionsClient({ initialMissions, associationId, currentMemberId
             </div>
           </div>
 
+          {/* Filtre Statut */}
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="w-44 h-11">
               <SelectValue placeholder={text.filterStatus} />
             </SelectTrigger>
             <SelectContent>
@@ -317,6 +373,42 @@ export function MissionsClient({ initialMissions, associationId, currentMemberId
               <SelectItem value="CANCELLED">{text.cancelled}</SelectItem>
             </SelectContent>
           </Select>
+
+          {/* Filtre Date */}
+          <DatePicker
+            date={selectedDate}
+            onDateChange={setSelectedDate}
+            placeholder={text.filterDate}
+            locale={locale}
+            className="w-44"
+          />
+
+          {/* Filtre Récurrence */}
+          <Select value={filterRecurrence} onValueChange={setFilterRecurrence}>
+            <SelectTrigger className="w-44 h-11">
+              <SelectValue placeholder={text.filterRecurrence} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{text.allRecurrences}</SelectItem>
+              <SelectItem value="oneTime">{text.oneTime}</SelectItem>
+              <SelectItem value="recurring">{text.recurring}</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Checkbox Mes missions */}
+          <label className="flex items-center gap-2 cursor-pointer group">
+            <Checkbox
+              checked={showMyMissionsOnly}
+              onCheckedChange={(checked) => setShowMyMissionsOnly(checked === true)}
+              id="my-missions-filter"
+            />
+            <label 
+              htmlFor="my-missions-filter"
+              className="text-sm font-medium text-gray-700 group-hover:text-[#18534F] transition-colors cursor-pointer"
+            >
+              {text.myMissions}
+            </label>
+          </label>
         </div>
       </div>
 
@@ -406,33 +498,17 @@ export function MissionsClient({ initialMissions, associationId, currentMemberId
                   </TableCell>
                   <TableCell className="px-6 py-4">
                     <div className="flex justify-center">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="w-5 h-5" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>{text.actions}</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/dashboard-association/missions/${mission.id}`);
-                          }}>
-                            <Eye className="w-4 h-4 mr-2" />
-                            {text.view}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
-                            <Edit className="w-4 h-4 mr-2" />
-                            {text.edit}
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={(e) => e.stopPropagation()} className="text-red-600">
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            {text.delete}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <MissionActionsDropdown
+                        missionId={mission.id}
+                        locale={locale}
+                        onEdit={() => {
+                          setMissionToEdit(mission);
+                        }}
+                        onDelete={() => {
+                          setMissionToDelete({ id: mission.id, title: mission.title });
+                          setDeleteDialogOpen(true);
+                        }}
+                      />
                     </div>
                   </TableCell>
                 </TableRow>
@@ -449,6 +525,36 @@ export function MissionsClient({ initialMissions, associationId, currentMemberId
           currentMemberId={currentMemberId}
           onClose={() => setShowCreateModal(false)}
           onSuccess={handleMissionCreated}
+        />
+      )}
+
+      {/* Delete confirmation dialog */}
+      {missionToDelete && (
+        <DeleteMissionDialog
+          missionId={missionToDelete.id}
+          missionTitle={missionToDelete.title}
+          open={deleteDialogOpen}
+          onOpenChange={(open) => {
+            setDeleteDialogOpen(open);
+            if (!open) setMissionToDelete(null);
+          }}
+          locale={locale}
+        />
+      )}
+
+      {/* Edit mission modal */}
+      {missionToEdit && (
+        <EditMissionModal
+          mission={missionToEdit}
+          associationId={associationId}
+          currentMemberId={currentMemberId}
+          onClose={() => {
+            setMissionToEdit(null);
+          }}
+          onSuccess={() => {
+            setMissionToEdit(null);
+            router.refresh();
+          }}
         />
       )}
     </div>

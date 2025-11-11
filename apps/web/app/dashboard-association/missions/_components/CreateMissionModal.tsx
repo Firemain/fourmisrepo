@@ -37,7 +37,12 @@ export function CreateMissionModal({ associationId, currentMemberId, onClose, on
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    address: '',
+    // Champs pour le contact/adresse
+    street: '',
+    apartmentNumber: '',
+    city: '',
+    postalCode: '',
+    country: 'France',
     start_at: undefined as Date | undefined,
     end_at: undefined as Date | undefined,
     start_time: '',
@@ -56,13 +61,22 @@ export function CreateMissionModal({ associationId, currentMemberId, onClose, on
       newMission: 'Nouvelle Mission',
       missionTitle: 'Titre de la mission',
       missionDescription: 'Description',
-      addressLabel: 'Adresse / Lieu',
-      addressPlaceholder: 'Ex: 123 Rue de la République, 75001 Paris',
+      addressSection: 'Adresse de la mission',
+      street: 'Rue',
+      streetPlaceholder: '123 Rue de la République',
+      apartmentNumber: 'Numéro d\'appartement / Complément',
+      apartmentPlaceholder: 'Bâtiment A, Étage 2...',
+      city: 'Ville',
+      cityPlaceholder: 'Paris',
+      postalCode: 'Code postal',
+      postalCodePlaceholder: '75001',
+      country: 'Pays',
+      phonePlaceholder: '+33 6 12 34 56 78',
       memberLabel: 'Membre responsable',
       memberPlaceholder: 'Sélectionner un membre',
       memberHelp: 'Ce membre sera le contact principal pour cette mission',
       recurrenceType: 'Récurrence',
-      recurrenceNone: 'Aucune (mission ponctuelle)',
+      recurrenceNone: 'Ponctuelle',
       recurrenceDaily: 'Quotidienne',
       recurrenceWeekly: 'Hebdomadaire',
       recurrenceMonthly: 'Mensuelle',
@@ -91,13 +105,22 @@ export function CreateMissionModal({ associationId, currentMemberId, onClose, on
       newMission: 'New Mission',
       missionTitle: 'Mission Title',
       missionDescription: 'Description',
-      addressLabel: 'Address / Location',
-      addressPlaceholder: 'Ex: 123 Main Street, Paris',
+      addressSection: 'Mission Address',
+      street: 'Street',
+      streetPlaceholder: '123 Main Street',
+      apartmentNumber: 'Apartment / Additional info',
+      apartmentPlaceholder: 'Building A, Floor 2...',
+      city: 'City',
+      cityPlaceholder: 'Paris',
+      postalCode: 'Postal Code',
+      postalCodePlaceholder: '75001',
+      country: 'Country',
+      phonePlaceholder: '+33 6 12 34 56 78',
       memberLabel: 'Responsible member',
       memberPlaceholder: 'Select a member',
       memberHelp: 'This member will be the main contact for this mission',
       recurrenceType: 'Recurrence',
-      recurrenceNone: 'None (one-time mission)',
+      recurrenceNone: 'One-time mission',
       recurrenceDaily: 'Daily',
       recurrenceWeekly: 'Weekly',
       recurrenceMonthly: 'Monthly',
@@ -169,7 +192,32 @@ export function CreateMissionModal({ associationId, currentMemberId, onClose, on
     setError('');
 
     try {
-      // Combiner la date et l'heure
+      // 1. Générer un ID pour le contact
+      const contactId = crypto.randomUUID();
+
+      // 2. Créer d'abord le contact avec l'adresse
+      const { data: contactData, error: contactError } = await supabase
+        .from('contacts')
+        .insert({
+          id: contactId,
+          street: formData.street,
+          apartment_number: formData.apartmentNumber || null,
+          city: formData.city,
+          postal_code: formData.postalCode,
+          country: formData.country,
+          phone_number: formData.phoneNumber || null,
+        })
+        .select('id')
+        .single();
+
+      if (contactError || !contactData) {
+        console.error('Error creating contact:', contactError);
+        setError(contactError?.message || 'Erreur lors de la création du contact');
+        setLoading(false);
+        return;
+      }
+
+      // 2. Combiner la date et l'heure
       let startDateTime = formData.start_at;
       if (startDateTime && formData.start_time) {
         const [hours, minutes] = formData.start_time.split(':');
@@ -177,14 +225,19 @@ export function CreateMissionModal({ associationId, currentMemberId, onClose, on
         startDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
       }
 
+      // 3. Générer un ID pour la mission
+      const missionId = crypto.randomUUID();
+
+      // 4. Créer la mission avec le contact_id
       const { error: insertError } = await supabase
         .from('missions')
         .insert({
+          id: missionId,
           association_id: associationId,
           association_member_id: formData.association_member_id,
+          contact_id: contactData.id,
           title: formData.title,
           description: formData.description || null,
-          address: formData.address || null,
           start_at: startDateTime?.toISOString(),
           end_at: formData.end_at?.toISOString() || null,
           duration: formData.duration ? parseInt(formData.duration) : null,
@@ -229,25 +282,33 @@ export function CreateMissionModal({ associationId, currentMemberId, onClose, on
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
-        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">{text.newMission}</h2>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200">
+        {/* Header avec gradient */}
+        <div className="bg-gradient-to-r from-[#18534F] to-[#226D68] p-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-white">{text.newMission}</h2>
+          </div>
           <Button
             variant="ghost"
             size="icon"
             onClick={onClose}
-            className="h-8 w-8"
+            className="h-9 w-9 text-white hover:bg-white/20 rounded-xl"
           >
-            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </Button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-88px)]">
           {error && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+            <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg flex items-start gap-3 animate-in slide-in-from-left">
               <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
               <p className="text-sm text-red-800">{error}</p>
             </div>
@@ -280,19 +341,75 @@ export function CreateMissionModal({ associationId, currentMemberId, onClose, on
             />
           </div>
 
-          {/* Adresse */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {text.addressLabel} *
-            </label>
-            <Input
-              type="text"
-              required
-              value={formData.address}
-              onChange={(e: any) => setFormData({ ...formData, address: e.target.value })}
-              placeholder={text.addressPlaceholder}
-              className="h-11"
-            />
+          {/* Adresse - Section complète avec icône */}
+          <div className="space-y-4 p-5 bg-gradient-to-br from-[#ECF8F6] to-white rounded-xl border-2 border-[#18534F]/10 shadow-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-[#18534F] rounded-xl flex items-center justify-center shadow-md">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">{text.addressSection}</h3>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {text.street} *
+              </label>
+              <Input
+                type="text"
+                required
+                value={formData.street}
+                onChange={(e: any) => setFormData({ ...formData, street: e.target.value })}
+                placeholder={text.streetPlaceholder}
+                className="h-11"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {text.city} *
+                </label>
+                <Input
+                  type="text"
+                  required
+                  value={formData.city}
+                  onChange={(e: any) => setFormData({ ...formData, city: e.target.value })}
+                  placeholder={text.cityPlaceholder}
+                  className="h-11"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {text.postalCode} *
+                </label>
+                <Input
+                  type="text"
+                  required
+                  value={formData.postalCode}
+                  onChange={(e: any) => setFormData({ ...formData, postalCode: e.target.value })}
+                  placeholder={text.postalCodePlaceholder}
+                  className="h-11"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {text.country} *
+              </label>
+              <Input
+                type="text"
+                required
+                value={formData.country}
+                onChange={(e: any) => setFormData({ ...formData, country: e.target.value })}
+                className="h-11"
+              />
+            </div>
+
           </div>
 
           {/* Membre responsable */}
@@ -424,21 +541,33 @@ export function CreateMissionModal({ associationId, currentMemberId, onClose, on
             />
           </div>
 
-          <div className="flex gap-4 pt-4">
+          <div className="flex gap-4 pt-6 border-t border-gray-200">
             <Button
               type="button"
               onClick={onClose}
               variant="outline"
-              className="flex-1"
+              className="flex-1 h-12 text-base border-2 border-gray-300 hover:border-gray-400 hover:bg-gray-50"
             >
               {text.cancel}
             </Button>
             <Button
               type="submit"
               disabled={loading}
-              className="flex-1 bg-[#18534F] hover:bg-[#226D68]"
+              className="flex-1 h-12 text-base bg-gradient-to-r from-[#18534F] to-[#226D68] hover:from-[#226D68] hover:to-[#18534F] text-white font-semibold shadow-lg shadow-[#18534F]/30 transition-all"
             >
-              {loading ? text.loading : text.create}
+              {loading ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  {text.loading}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  {text.create}
+                </div>
+              )}
             </Button>
           </div>
         </form>

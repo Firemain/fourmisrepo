@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Users, Target, Calendar, Settings, LogOut, Heart } from 'lucide-react';
+import { Home, Users, Target, MessageCircle, Settings, LogOut } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
 
 interface AssociationSidebarProps {
@@ -18,7 +18,7 @@ export default function AssociationSidebar({ locale }: AssociationSidebarProps) 
       home: 'Accueil',
       members: 'Membres',
       missions: 'Missions',
-      events: 'Événements',
+      chat: 'Discussions',
       settings: 'Paramètres',
       logout: 'Déconnexion',
     },
@@ -26,7 +26,7 @@ export default function AssociationSidebar({ locale }: AssociationSidebarProps) 
       home: 'Home',
       members: 'Members',
       missions: 'Missions',
-      events: 'Events',
+      chat: 'Chat',
       settings: 'Settings',
       logout: 'Logout',
     },
@@ -36,9 +36,9 @@ export default function AssociationSidebar({ locale }: AssociationSidebarProps) 
 
   const menuItems = [
     { href: '/dashboard-association', icon: Home, label: t.home },
-    { href: '/dashboard-association/members', icon: Users, label: t.members },
+    { href: '/dashboard-association/membres', icon: Users, label: t.members },
     { href: '/dashboard-association/missions', icon: Target, label: t.missions },
-    { href: '/dashboard-association/events', icon: Calendar, label: t.events },
+    { href: '/dashboard-association/chat', icon: MessageCircle, label: t.chat },
     { href: '/dashboard-association/parametres', icon: Settings, label: t.settings },
   ];
 

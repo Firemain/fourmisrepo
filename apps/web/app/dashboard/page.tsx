@@ -2,10 +2,14 @@
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useLocale } from '@/lib/i18n/LocaleContext';
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 
-export default function DashboardPage() {
+function DashboardContent() {
   const { user } = useAuth();
   const { locale } = useLocale();
+  const searchParams = useSearchParams();
+  const error = searchParams.get('error');
 
   const t = {
     fr: {
@@ -28,6 +32,12 @@ export default function DashboardPage() {
       schoolSupport: 'Soutien scolaire',
       newRegistration: 'Nouvelle inscription:',
       sustainableClub: 'Club Développement Durable',
+      noAssociationTitle: 'Aucune association',
+      noAssociationMessage: 'Vous devez être membre d\'une association pour accéder au dashboard association.',
+      noAssociationHelp: 'Veuillez contacter un administrateur ou rejoindre une association.',
+      wrongRoleTitle: 'Accès refusé',
+      wrongRoleMessage: 'Le dashboard association est réservé aux comptes de type ASSOCIATION.',
+      wrongRoleHelp: 'Votre compte actuel est de type étudiant, école ou admin. Veuillez vous connecter avec un compte association.',
     },
     en: {
       welcome: 'Welcome',
@@ -49,6 +59,12 @@ export default function DashboardPage() {
       schoolSupport: 'School Support',
       newRegistration: 'New registration:',
       sustainableClub: 'Sustainable Development Club',
+      noAssociationTitle: 'No association',
+      noAssociationMessage: 'You must be a member of an association to access the association dashboard.',
+      noAssociationHelp: 'Please contact an administrator or join an association.',
+      wrongRoleTitle: 'Access denied',
+      wrongRoleMessage: 'The association dashboard is reserved for ASSOCIATION type accounts.',
+      wrongRoleHelp: 'Your current account is student, school or admin type. Please log in with an association account.',
     },
   };
 
@@ -56,6 +72,48 @@ export default function DashboardPage() {
 
   return (
     <div className="p-8">
+      {error === 'wrong_role' && (
+        <div className="mb-8 bg-red-50 border-2 border-red-400 rounded-xl p-6 shadow-lg">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center shrink-0">
+              <span className="text-2xl">🚫</span>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-bold text-gray-900 mb-2">
+                {text.wrongRoleTitle}
+              </h3>
+              <p className="text-gray-700 mb-2">
+                {text.wrongRoleMessage}
+              </p>
+              <p className="text-sm text-gray-600">
+                {text.wrongRoleHelp}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {error === 'no_association' && (
+        <div className="mb-8 bg-yellow-50 border-2 border-yellow-400 rounded-xl p-6 shadow-lg">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center shrink-0">
+              <span className="text-2xl">⚠️</span>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-bold text-gray-900 mb-2">
+                {text.noAssociationTitle}
+              </h3>
+              <p className="text-gray-700 mb-2">
+                {text.noAssociationMessage}
+              </p>
+              <p className="text-sm text-gray-600">
+                {text.noAssociationHelp}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
           {text.welcome}, {user?.email?.split('@')[0]} ! 👋
@@ -181,5 +239,20 @@ export default function DashboardPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="p-8">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+        </div>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   );
 }

@@ -141,6 +141,7 @@ model Contact {
   schoolMembers         SchoolMember[]
   associations          Association[]
   associationMembers    AssociationMember[]
+  missions              Mission[]
 
   @@map("contacts")
 }
@@ -267,11 +268,11 @@ model Mission {
   id                   String          @id @default(uuid())
   associationId        String          @map("association_id")
   associationMemberId  String          @map("association_member_id")
+  contactId            String?         @map("contact_id") // Contact pour l'adresse de la mission
   title                String
   description          String?         @db.Text
-  address              String?         // Adresse ou lieu de la mission
   startAt              DateTime        @map("start_at")
-  endAt                DateTime        @map("end_at")
+  endAt                DateTime?       @map("end_at") // Pour missions ponctuelles ou dernière occurrence pour récurrentes
   maximumParticipant   Int?            @map("maximum_participant")
   recurrenceType       RecurrenceType  @default(NONE) @map("recurrence_type")
   duration             Int?            // Duration in minutes
@@ -282,6 +283,7 @@ model Mission {
   // Relations
   association          Association           @relation(fields: [associationId], references: [id], onDelete: Cascade)
   associationMember    AssociationMember     @relation(fields: [associationMemberId], references: [id], onDelete: Cascade)
+  contact              Contact?              @relation(fields: [contactId], references: [id], onDelete: SetNull)
   registrations        MissionRegistration[]
   tags                 MissionTags[]
 

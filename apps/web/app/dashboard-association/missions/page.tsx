@@ -21,7 +21,7 @@ export default async function AssociationMissionsPage() {
     .single();
 
   if (!userProfile) {
-    redirect('/onboarding');
+    redirect('/login');
   }
 
   // 3. Récupérer l'association_member
@@ -31,12 +31,15 @@ export default async function AssociationMissionsPage() {
     .eq('user_profile_id', userProfile.id)
     .single();
 
+  // Note: La vérification de associationMember est faite dans le layout.tsx
+  // Si on arrive ici, c'est qu'on a les permissions
+  
   if (!associationMember) {
     return (
       <div className="p-8">
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
           <p className="text-yellow-800">
-            Vous devez être membre d'une association pour accéder à cette page.
+            Erreur : impossible de récupérer vos informations d'association.
           </p>
         </div>
       </div>
@@ -54,12 +57,37 @@ export default async function AssociationMissionsPage() {
     console.error('Error fetching missions:', missionsError);
   }
 
-  // 5. Passer les données au Client Component
+  // 5. Récupérer les statistiques des inscriptions
+  const { data: registrations } = await supabase
+    .from('mission_registrations')
+    .select('mission_id, status')
+    .in('mission_id', (missions || []).map(m => m.id));
+
+  // Calculer les stats
+  const registrationsByMission = (registrations || []).reduce((acc, reg) => {
+    if (!acc[reg.mission_id]) {
+      acc[reg.mission_id] = { total: 0, completed: 0, confirmed: 0 };
+    }
+    acc[reg.mission_id].total++;
+    if (reg.status === 'COMPLETED') acc[reg.mission_id].completed++;
+    if (reg.status === 'CONFIRMED') acc[reg.mission_id].confirmed++;
+    return acc;
+  }, {} as Record<string, { total: number; completed: number; confirmed: number }>);
+
+  const totalRegistrations = (registrations || []).length;
+  const completedRegistrations = (registrations || []).filter(r => r.status === 'COMPLETED').length;
+
+  // 6. Passer les données au Client Component
   return (
     <MissionsClient 
       initialMissions={missions || []}
       associationId={associationMember.association_id}
       currentMemberId={associationMember.id}
+      registrationStats={{
+        totalRegistrations,
+        completedRegistrations,
+        registrationsByMission,
+      }}
     />
   );
 }
