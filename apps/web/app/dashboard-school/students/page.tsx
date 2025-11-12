@@ -1,511 +1,285 @@
-'use client';
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+import StudentsListClient from './_components/StudentsListClient';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useLocale } from '@/lib/i18n/LocaleContext';
-import { 
-  Search,
-  Filter,
-  Download,
-  Mail,
-  MoreVertical,
-  Eye,
-  Edit,
-  Trash2,
-  UserCheck,
-  UserX,
-  GraduationCap,
-  TrendingUp,
-  Award,
-  Clock
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
+export default async function StudentsPage(props: {
+  searchParams: Promise<{ search?: string; level?: string; status?: string; page?: string }>;
+}) {
+  console.log('[STUDENTS PAGE] Fetching students data');
 
-export default function StudentsPage() {
-  const { locale } = useLocale();
-  const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedLevel, setSelectedLevel] = useState('all');
-  const [selectedStatus, setSelectedStatus] = useState('all');
+  const searchParams = await props.searchParams;
+  const supabase = await createClient();
 
-  const t = {
-    fr: {
-      title: 'Gestion des Étudiants',
-      subtitle: 'Liste complète des étudiants inscrits',
-      
-      // Stats
-      totalStudents: 'Total étudiants',
-      activeStudents: 'Actifs',
-      avgMissions: 'Missions moy.',
-      avgHours: 'Heures moy.',
-      
-      // Filtres
-      search: 'Rechercher un étudiant...',
-      filterLevel: 'Filtrer par niveau',
-      filterStatus: 'Filtrer par statut',
-      allLevels: 'Tous les niveaux',
-      allStatus: 'Tous les statuts',
-      active: 'Actif',
-      inactive: 'Inactif',
-      
-      // Actions
-      exportCSV: 'Exporter CSV',
-      sendEmail: 'Envoyer email groupé',
-      
-      // Table headers
-      student: 'Étudiant',
-      level: 'Niveau',
-      email: 'Email',
-      missions: 'Missions',
-      hours: 'Heures',
-      status: 'Statut',
-      lastActivity: 'Dernière activité',
-      actions: 'Actions',
-      
-      // Actions menu
-      viewProfile: 'Voir le profil',
-      editStudent: 'Modifier',
-      sendMessage: 'Envoyer un message',
-      deactivate: 'Désactiver',
-      delete: 'Supprimer',
-      
-      // Pagination
-      showing: 'Affichage',
-      of: 'sur',
-      results: 'résultats',
-      previous: 'Précédent',
-      next: 'Suivant',
+  // 1. Récupérer l'utilisateur authentifié
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect('/login');
+  }
+
+  // 2. Récupérer le profil utilisateur
+  const { data: userProfile, error: profileError } = await supabase
+    .from('user_profiles')
+    .select('id, role')
+    .eq('user_id', user.id)
+    .single();
+
+  if (profileError || !userProfile) {
+    console.error('[STUDENTS PAGE] User profile not found:', profileError);
+    redirect('/dashboard?error=no_profile');
+  }
+
+  // 3. Vérifier que l'utilisateur est un admin d'école
+  const { data: schoolAdmin, error: adminError } = await supabase
+    .from('school_admins')
+    .select('id, school_id')
+    .eq('user_profile_id', userProfile.id)
+    .single();
+
+  if (adminError || !schoolAdmin) {
+    console.error('[STUDENTS PAGE] School admin not found:', adminError);
+    redirect('/dashboard?error=no_school');
+  }
+
+  console.log('[STUDENTS PAGE] School admin:', {
+    id: schoolAdmin.id,
+    schoolId: schoolAdmin.school_id,
+  });
+
+  // 4. Paramètres de recherche et pagination
+  const searchQuery = searchParams.search || '';
+  const levelFilter = searchParams.level || 'all';
+  const statusFilter = searchParams.status || 'all';
+  const currentPage = parseInt(searchParams.page || '1');
+  const itemsPerPage = 20;
+  const offset = (currentPage - 1) * itemsPerPage;
+
+  // 5. FETCH - Total étudiants de l'école
+  const { count: totalStudents, error: totalError } = await supabase
+    .from('school_members')
+    .select('id', { count: 'exact', head: true })
+    .eq('school_id', schoolAdmin.school_id);
+
+  if (totalError) {
+    console.error('[STUDENTS PAGE] Error fetching total students:', totalError);
+  }
+
+  console.log('[STUDENTS PAGE] Total students:', totalStudents);
+
+  // 6. FETCH - Étudiants actifs (avec au moins une mission)
+  // D'abord récupérer les IDs de tous les étudiants de l'école
+  const { data: schoolMembersIds, error: membersIdsError } = await supabase
+    .from('school_members')
+    .select('id')
+    .eq('school_id', schoolAdmin.school_id);
+
+  const memberIds = schoolMembersIds?.map((m) => m.id) || [];
+
+  // Ensuite compter les étudiants actifs
+  const { data: activeStudentsData, error: activeError } = await supabase
+    .from('mission_registrations')
+    .select('school_member_id')
+    .in('school_member_id', memberIds);
+
+  const activeStudentsCount = activeStudentsData
+    ? new Set(activeStudentsData.map((r) => r.school_member_id)).size
+    : 0;
+
+  if (activeError || membersIdsError) {
+    console.error('[STUDENTS PAGE] Error fetching active students:', activeError || membersIdsError);
+  }
+
+  console.log('[STUDENTS PAGE] Active students:', activeStudentsCount);
+
+  // 7. FETCH - Moyenne de missions par étudiant
+  const { data: allRegistrations, error: registrationsError } = await supabase
+    .from('mission_registrations')
+    .select('school_member_id')
+    .in('school_member_id', memberIds);
+
+  const avgMissions =
+    totalStudents && totalStudents > 0
+      ? ((allRegistrations?.length || 0) / totalStudents).toFixed(1)
+      : '0.0';
+
+  if (registrationsError) {
+    console.error('[STUDENTS PAGE] Error fetching registrations:', registrationsError);
+  }
+
+  console.log('[STUDENTS PAGE] Avg missions per student:', avgMissions);
+
+  // 8. FETCH - Moyenne d'heures par étudiant (missions complétées * 4h)
+  const { data: completedRegistrations, error: completedError } = await supabase
+    .from('mission_registrations')
+    .select('school_member_id')
+    .eq('status', 'COMPLETED')
+    .in('school_member_id', memberIds);
+
+  const totalHours = (completedRegistrations?.length || 0) * 4;
+  const avgHours =
+    totalStudents && totalStudents > 0
+      ? (totalHours / totalStudents).toFixed(1)
+      : '0.0';
+
+  if (completedError) {
+    console.error('[STUDENTS PAGE] Error fetching completed registrations:', completedError);
+  }
+
+  console.log('[STUDENTS PAGE] Avg hours per student:', avgHours);
+
+  // 9. Construire la query pour la liste des étudiants
+  let studentsQuery = supabase
+    .from('school_members')
+    .select(
+      `
+      id,
+      first_name,
+      last_name,
+      email,
+      created_at,
+      ref_academic_levels (
+        id,
+        display_name,
+        name
+      )
+    `,
+      { count: 'exact' }
+    )
+    .eq('school_id', schoolAdmin.school_id)
+    .order('created_at', { ascending: false });
+
+  // Filtrer par recherche (nom ou email)
+  if (searchQuery) {
+    studentsQuery = studentsQuery.or(
+      `first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`
+    );
+  }
+
+  // Filtrer par niveau
+  if (levelFilter !== 'all') {
+    const { data: levels } = await supabase
+      .from('ref_academic_levels')
+      .select('id')
+      .eq('name', levelFilter)
+      .eq('school_id', schoolAdmin.school_id);
+
+    if (levels && levels.length > 0) {
+      studentsQuery = studentsQuery.in(
+        'academic_level_id',
+        levels.map((l) => l.id)
+      );
+    }
+  }
+
+  // Appliquer pagination
+  studentsQuery = studentsQuery.range(offset, offset + itemsPerPage - 1);
+
+  const { data: students, error: studentsError, count: filteredCount } = await studentsQuery;
+
+  if (studentsError) {
+    console.error('[STUDENTS PAGE] Error fetching students:', studentsError);
+  }
+
+  console.log('[STUDENTS PAGE] Students fetched:', students?.length);
+
+  // 10. Pour chaque étudiant, récupérer le nombre de missions et heures
+  const studentsWithStats = await Promise.all(
+    (students || []).map(async (student: any) => {
+      // Compter les missions de l'étudiant
+      const { count: missionsCount } = await supabase
+        .from('mission_registrations')
+        .select('id', { count: 'exact', head: true })
+        .eq('school_member_id', student.id);
+
+      // Compter les heures (missions complétées * 4h)
+      const { count: completedCount } = await supabase
+        .from('mission_registrations')
+        .select('id', { count: 'exact', head: true })
+        .eq('school_member_id', student.id)
+        .eq('status', 'COMPLETED');
+
+      const hours = (completedCount || 0) * 4;
+
+      // Dernière activité (dernière inscription à une mission)
+      const { data: lastRegistration } = await supabase
+        .from('mission_registrations')
+        .select('created_at')
+        .eq('school_member_id', student.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      // Déterminer le statut (actif si au moins une mission dans les 30 derniers jours)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const isActive = lastRegistration
+        ? new Date(lastRegistration.created_at) > thirtyDaysAgo
+        : false;
+
+      return {
+        id: student.id,
+        firstName: student.first_name,
+        lastName: student.last_name,
+        email: student.email,
+        level: student.ref_academic_levels?.display_name || 'Non défini',
+        levelCode: student.ref_academic_levels?.name || 'N/A',
+        missions: missionsCount || 0,
+        hours,
+        status: (isActive ? 'active' : 'inactive') as 'active' | 'inactive',
+        lastActivity: lastRegistration?.created_at || student.created_at,
+        createdAt: student.created_at,
+      };
+    })
+  );
+
+  // Filtrer par statut si demandé
+  let finalStudents = studentsWithStats;
+  if (statusFilter !== 'all') {
+    finalStudents = studentsWithStats.filter((s) => s.status === statusFilter);
+  }
+
+  // 11. Récupérer les niveaux académiques pour les filtres
+  const { data: academicLevels, error: levelsError } = await supabase
+    .from('ref_academic_levels')
+    .select('id, name, display_name')
+    .eq('school_id', schoolAdmin.school_id)
+    .order('name');
+
+  if (levelsError) {
+    console.error('[STUDENTS PAGE] Error fetching academic levels:', levelsError);
+  }
+
+  const levelsOptions = academicLevels?.map((level: any) => ({
+    value: level.name,
+    label: level.display_name,
+  })) || [];
+
+  console.log('[STUDENTS PAGE] Academic levels:', levelsOptions.length);
+
+  // Préparer les données pour le client
+  const data = {
+    stats: {
+      totalStudents: totalStudents || 0,
+      activeStudents: activeStudentsCount,
+      avgMissions: parseFloat(avgMissions),
+      avgHours: parseFloat(avgHours),
     },
-    en: {
-      title: 'Student Management',
-      subtitle: 'Complete list of registered students',
-      
-      totalStudents: 'Total Students',
-      activeStudents: 'Active',
-      avgMissions: 'Avg. Missions',
-      avgHours: 'Avg. Hours',
-      
-      search: 'Search for a student...',
-      filterLevel: 'Filter by level',
-      filterStatus: 'Filter by status',
-      allLevels: 'All levels',
-      allStatus: 'All statuses',
-      active: 'Active',
-      inactive: 'Inactive',
-      
-      exportCSV: 'Export CSV',
-      sendEmail: 'Send bulk email',
-      
-      student: 'Student',
-      level: 'Level',
-      email: 'Email',
-      missions: 'Missions',
-      hours: 'Hours',
-      status: 'Status',
-      lastActivity: 'Last Activity',
-      actions: 'Actions',
-      
-      viewProfile: 'View Profile',
-      editStudent: 'Edit',
-      sendMessage: 'Send Message',
-      deactivate: 'Deactivate',
-      delete: 'Delete',
-      
-      showing: 'Showing',
-      of: 'of',
-      results: 'results',
-      previous: 'Previous',
-      next: 'Next',
+    students: finalStudents,
+    levels: levelsOptions,
+    pagination: {
+      currentPage,
+      itemsPerPage,
+      totalItems: filteredCount || 0,
+      totalPages: Math.ceil((filteredCount || 0) / itemsPerPage),
+    },
+    filters: {
+      search: searchQuery,
+      level: levelFilter,
+      status: statusFilter,
     },
   };
 
-  const text = t[locale];
-
-  // Données de test
-  const students = [
-    { 
-      id: '1', 
-      firstName: 'Jean', 
-      lastName: 'Dupont', 
-      email: 'jean.dupont@example.com', 
-      level: 'Master 1', 
-      missions: 8, 
-      hours: 45, 
-      status: 'active',
-      lastActivity: 'Il y a 2h',
-      avatar: 'JD',
-      color: '#18534F'
-    },
-    { 
-      id: '2', 
-      firstName: 'Marie', 
-      lastName: 'Leblanc', 
-      email: 'marie.leblanc@example.com', 
-      level: 'Licence 3', 
-      missions: 12, 
-      hours: 68, 
-      status: 'active',
-      lastActivity: 'Il y a 1j',
-      avatar: 'ML',
-      color: '#226D68'
-    },
-    { 
-      id: '3', 
-      firstName: 'Thomas', 
-      lastName: 'Chen', 
-      email: 'thomas.chen@example.com', 
-      level: 'Licence 1', 
-      missions: 3, 
-      hours: 12, 
-      status: 'active',
-      lastActivity: 'Il y a 3h',
-      avatar: 'TC',
-      color: '#D6955B'
-    },
-    { 
-      id: '4', 
-      firstName: 'Sophie', 
-      lastName: 'Martin', 
-      email: 'sophie.martin@example.com', 
-      level: 'Master 2', 
-      missions: 15, 
-      hours: 92, 
-      status: 'active',
-      lastActivity: 'Il y a 5h',
-      avatar: 'SM',
-      color: '#18534F'
-    },
-    { 
-      id: '5', 
-      firstName: 'Lucas', 
-      lastName: 'Bernard', 
-      email: 'lucas.bernard@example.com', 
-      level: 'Licence 2', 
-      missions: 6, 
-      hours: 34, 
-      status: 'active',
-      lastActivity: 'Il y a 2j',
-      avatar: 'LB',
-      color: '#226D68'
-    },
-    { 
-      id: '6', 
-      firstName: 'Emma', 
-      lastName: 'Dubois', 
-      email: 'emma.dubois@example.com', 
-      level: 'Master 1', 
-      missions: 10, 
-      hours: 58, 
-      status: 'active',
-      lastActivity: 'Il y a 4h',
-      avatar: 'ED',
-      color: '#D6955B'
-    },
-    { 
-      id: '7', 
-      firstName: 'Alexandre', 
-      lastName: 'Moreau', 
-      email: 'alex.moreau@example.com', 
-      level: 'Licence 3', 
-      missions: 2, 
-      hours: 8, 
-      status: 'inactive',
-      lastActivity: 'Il y a 2 semaines',
-      avatar: 'AM',
-      color: '#999999'
-    },
-    { 
-      id: '8', 
-      firstName: 'Chloé', 
-      lastName: 'Petit', 
-      email: 'chloe.petit@example.com', 
-      level: 'Master 2', 
-      missions: 18, 
-      hours: 110, 
-      status: 'active',
-      lastActivity: 'Il y a 1h',
-      avatar: 'CP',
-      color: '#18534F'
-    },
-  ];
-
-  return (
-    <div className="p-8 bg-[#ECF8F6] min-h-screen">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
-          <GraduationCap className="w-8 h-8 text-[#18534F]" />
-          {text.title}
-        </h1>
-        <p className="text-gray-600">{text.subtitle}</p>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-[#18534F]">
-          <div className="flex items-center justify-between mb-2">
-            <div className="p-3 bg-[#ECF8F6] rounded-lg">
-              <GraduationCap className="w-6 h-6 text-[#18534F]" />
-            </div>
-          </div>
-          <p className="text-sm font-medium text-gray-600 mb-1">{text.totalStudents}</p>
-          <p className="text-3xl font-bold text-gray-900">1,245</p>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-[#226D68]">
-          <div className="flex items-center justify-between mb-2">
-            <div className="p-3 bg-[#ECF8F6] rounded-lg">
-              <UserCheck className="w-6 h-6 text-[#226D68]" />
-            </div>
-          </div>
-          <p className="text-sm font-medium text-gray-600 mb-1">{text.activeStudents}</p>
-          <p className="text-3xl font-bold text-gray-900">892</p>
-          <p className="text-xs text-gray-500 mt-1">71.6%</p>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-[#D6955B]">
-          <div className="flex items-center justify-between mb-2">
-            <div className="p-3 bg-[#ECF8F6] rounded-lg">
-              <Award className="w-6 h-6 text-[#D6955B]" />
-            </div>
-          </div>
-          <p className="text-sm font-medium text-gray-600 mb-1">{text.avgMissions}</p>
-          <p className="text-3xl font-bold text-gray-900">3.4</p>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-[#FEEAA1]">
-          <div className="flex items-center justify-between mb-2">
-            <div className="p-3 bg-[#ECF8F6] rounded-lg">
-              <Clock className="w-6 h-6 text-[#D6955B]" />
-            </div>
-          </div>
-          <p className="text-sm font-medium text-gray-600 mb-1">{text.avgHours}</p>
-          <p className="text-3xl font-bold text-gray-900">14.2h</p>
-        </div>
-      </div>
-
-      {/* Filtres et actions */}
-      <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-          {/* Barre de recherche */}
-          <div className="flex-1 max-w-md">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <Input
-                type="text"
-                placeholder={text.search}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-11"
-              />
-            </div>
-          </div>
-
-          {/* Filtres */}
-          <div className="flex flex-wrap gap-3">
-            <Select value={selectedLevel} onValueChange={setSelectedLevel}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder={text.filterLevel} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{text.allLevels}</SelectItem>
-                <SelectItem value="L1">Licence 1</SelectItem>
-                <SelectItem value="L2">Licence 2</SelectItem>
-                <SelectItem value="L3">Licence 3</SelectItem>
-                <SelectItem value="M1">Master 1</SelectItem>
-                <SelectItem value="M2">Master 2</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder={text.filterStatus} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{text.allStatus}</SelectItem>
-                <SelectItem value="active">{text.active}</SelectItem>
-                <SelectItem value="inactive">{text.inactive}</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button variant="outline" className="gap-2">
-              <Download className="w-4 h-4" />
-              {text.exportCSV}
-            </Button>
-
-            <Button className="gap-2 bg-[#18534F] hover:bg-[#226D68]">
-              <Mail className="w-4 h-4" />
-              {text.sendEmail}
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Tableau des étudiants */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-gray-50 hover:bg-gray-50">
-              <TableHead className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                {text.student}
-              </TableHead>
-              <TableHead className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                {text.level}
-              </TableHead>
-              <TableHead className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                {text.email}
-              </TableHead>
-              <TableHead className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                {text.missions}
-              </TableHead>
-              <TableHead className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                {text.hours}
-              </TableHead>
-              <TableHead className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                {text.status}
-              </TableHead>
-              <TableHead className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                {text.lastActivity}
-              </TableHead>
-              <TableHead className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                {text.actions}
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {students.map((student) => (
-              <TableRow 
-                key={student.id} 
-                onClick={() => router.push(`/dashboard-school/students/${student.id}`)}
-                className="cursor-pointer"
-              >
-                <TableCell className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div 
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold"
-                      style={{ backgroundColor: student.color }}
-                    >
-                      {student.avatar}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-900">
-                        {student.firstName} {student.lastName}
-                      </p>
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell className="px-6 py-4">
-                  <Badge className="bg-[#ECF8F6] text-[#18534F] hover:bg-[#ECF8F6] border-0">
-                    {student.level}
-                  </Badge>
-                </TableCell>
-                <TableCell className="px-6 py-4 text-sm text-gray-600">
-                  {student.email}
-                </TableCell>
-                <TableCell className="px-6 py-4 text-center">
-                  <span className="text-lg font-bold text-gray-900">{student.missions}</span>
-                </TableCell>
-                <TableCell className="px-6 py-4 text-center">
-                  <span className="text-lg font-bold text-gray-900">{student.hours}h</span>
-                </TableCell>
-                <TableCell className="px-6 py-4">
-                  <div className="flex justify-center">
-                    {student.status === 'active' ? (
-                      <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-0 gap-1">
-                        <UserCheck className="w-3 h-3" />
-                        {text.active}
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-gray-100 text-gray-600 hover:bg-gray-100 border-0 gap-1">
-                        <UserX className="w-3 h-3" />
-                        {text.inactive}
-                      </Badge>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell className="px-6 py-4 text-sm text-gray-600">
-                  {student.lastActivity}
-                </TableCell>
-                <TableCell className="px-6 py-4">
-                  <div className="flex justify-center">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreVertical className="w-5 h-5" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>{text.actions}</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/dashboard-school/students/${student.id}`);
-                        }}>
-                          <Eye className="w-4 h-4 mr-2" />
-                          {text.viewProfile}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
-                          <Edit className="w-4 h-4 mr-2" />
-                          {text.editStudent}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
-                          <Mail className="w-4 h-4 mr-2" />
-                          {text.sendMessage}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={(e) => e.stopPropagation()} className="text-red-600">
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          {text.delete}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-
-        {/* Pagination */}
-        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-          <p className="text-sm text-gray-600">
-            {text.showing} 1-8 {text.of} 1,245 {text.results}
-          </p>
-          <div className="flex gap-2">
-            <Button variant="outline">
-              {text.previous}
-            </Button>
-            <Button className="bg-[#18534F] hover:bg-[#226D68]">
-              {text.next}
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  return <StudentsListClient data={data} />;
 }
