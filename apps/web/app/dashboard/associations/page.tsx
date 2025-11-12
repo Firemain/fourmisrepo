@@ -1,39 +1,78 @@
-'use client';
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+import AssociationsClient from './_components/AssociationsClient';
 
-import { useLocale } from '@/lib/i18n/LocaleContext';
+export default async function AssociationsPage() {
+  const supabase = await createClient();
 
-export default function AssociationsPage() {
-  const { locale } = useLocale();
+  // 1. Vérifier l'authentification
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const t = {
-    fr: {
-      title: 'Associations 👥',
-      subtitle: 'Rejoignez des associations et participez à leurs activités',
-      construction: 'Page en construction',
-      soon: 'Cette fonctionnalité sera bientôt disponible !',
+  if (!user) {
+    redirect('/login');
+  }
+
+  // 2. Récupérer toutes les associations avec leurs informations
+  const { data: associations, error } = await supabase
+    .from('associations')
+    .select(`
+      id,
+      name,
+      description,
+      logo_url,
+      site_url,
+      status,
+      email,
+      contact:contacts (
+        street,
+        city,
+        postal_code,
+        country
+      ),
+      tags:association_tags_relation (
+        tag:association_tags (
+          id,
+          name
+        )
+      ),
+      missions (
+        id
+      ),
+      members:association_members (
+        id
+      )
+    `)
+    .eq('status', 'ACTIVE')
+    .order('name');
+
+  if (error) {
+    console.error('Error fetching associations:', error);
+  }
+
+  // 3. Formater les données
+  const formattedAssociations = (associations || []).map((assoc) => ({
+    id: assoc.id,
+    name: assoc.name,
+    description: assoc.description || '',
+    logoUrl: assoc.logo_url,
+    siteUrl: assoc.site_url,
+    email: assoc.email,
+    location: assoc.contact ? {
+      city: assoc.contact.city,
+      postalCode: assoc.contact.postal_code,
+      country: assoc.contact.country,
+    } : null,
+    tags: assoc.tags?.map((t: any) => ({
+      id: t.tag.id,
+      name: t.tag.name,
+    })) || [],
+    stats: {
+      missionsCount: assoc.missions?.length || 0,
+      membersCount: assoc.members?.length || 0,
     },
-    en: {
-      title: 'Clubs 👥',
-      subtitle: 'Join clubs and participate in their activities',
-      construction: 'Under construction',
-      soon: 'This feature will be available soon!',
-    },
-  };
+  }));
 
-  const text = t[locale];
-
-  return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">{text.title}</h1>
-        <p className="text-gray-600">{text.subtitle}</p>
-      </div>
-
-      <div className="bg-white rounded-lg shadow-sm p-8 text-center">
-        <div className="text-6xl mb-4">🚧</div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">{text.construction}</h2>
-        <p className="text-gray-600">{text.soon}</p>
-      </div>
-    </div>
-  );
+  return <AssociationsClient associations={formattedAssociations} />;
 }

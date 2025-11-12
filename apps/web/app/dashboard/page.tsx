@@ -1,258 +1,158 @@
-'use client';
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+import StudentDashboardClient from './_components/StudentDashboardClient';
 
-import { useAuth } from '@/lib/auth/AuthContext';
-import { useLocale } from '@/lib/i18n/LocaleContext';
-import { useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
+export default async function DashboardPage() {
+  const supabase = await createClient();
 
-function DashboardContent() {
-  const { user } = useAuth();
-  const { locale } = useLocale();
-  const searchParams = useSearchParams();
-  const error = searchParams.get('error');
+  // 1. Vérifier l'authentification
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
 
-  const t = {
-    fr: {
-      welcome: 'Bienvenue',
-      subtitle: 'Voici votre espace personnel Fourmis',
-      activeMissions: 'Missions actives',
-      badgesEarned: 'Badges gagnés',
-      associations: 'Associations',
-      validatedHours: 'Heures validées',
-      upcomingMissions: 'Missions à venir',
-      recentActivity: 'Activité récente',
-      tutoring: 'Tutorat Mathématiques',
-      tomorrow: 'Demain à 14h00',
-      workshop: 'Atelier Écologie',
-      friday: 'Vendredi à 10h00',
-      badgeUnlocked: 'Badge débloqué:',
-      expertTutor: 'Tuteur Expert',
-      daysAgo: 'Il y a',
-      missionCompleted: 'Mission complétée:',
-      schoolSupport: 'Soutien scolaire',
-      newRegistration: 'Nouvelle inscription:',
-      sustainableClub: 'Club Développement Durable',
-      noAssociationTitle: 'Aucune association',
-      noAssociationMessage: 'Vous devez être membre d\'une association pour accéder au dashboard association.',
-      noAssociationHelp: 'Veuillez contacter un administrateur ou rejoindre une association.',
-      wrongRoleTitle: 'Accès refusé',
-      wrongRoleMessage: 'Le dashboard association est réservé aux comptes de type ASSOCIATION.',
-      wrongRoleHelp: 'Votre compte actuel est de type étudiant, école ou admin. Veuillez vous connecter avec un compte association.',
+  // 2. Récupérer le user_profile
+  const { data: userProfile } = await supabase
+    .from('user_profiles')
+    .select('id, full_name, role')
+    .eq('user_id', user.id)
+    .single();
+
+  if (!userProfile) redirect('/login');
+
+  // 3. Récupérer le school_member
+  const { data: schoolMember } = await supabase
+    .from('school_members')
+    .select('id, school_id, first_name, last_name')
+    .eq('user_profile_id', userProfile.id)
+    .single();
+
+  if (!schoolMember) {
+    return (
+      <div className="p-8">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+          <p className="text-yellow-800">
+            Erreur : impossible de récupérer vos informations d'étudiant.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // 4. Récupérer les inscriptions aux missions de l'étudiant
+  const { data: registrations } = await supabase
+    .from('mission_registrations')
+    .select(`
+      id,
+      status,
+      created_at,
+      mission_id,
+      missions (
+        id,
+        title,
+        description,
+        start_at,
+        end_at,
+        duration,
+        status,
+        association_id,
+        associations (
+          id,
+          name
+        )
+      )
+    `)
+    .eq('school_member_id', schoolMember.id)
+    .order('created_at', { ascending: false });
+
+  // 5. Calculer les stats
+  const now = new Date();
+  const completedRegistrations = registrations?.filter(r => r.status === 'COMPLETED') || [];
+  const confirmedRegistrations = registrations?.filter(r => r.status === 'CONFIRMED') || [];
+  
+  // Missions à venir (CONFIRMED et date future)
+  const upcomingMissions = confirmedRegistrations
+    .filter(r => r.missions && new Date(r.missions.start_at) > now)
+    .slice(0, 2) // ✅ Limité à 2 missions
+    .map(r => ({
+      id: r.missions.id,
+      title: r.missions.title,
+      description: r.missions.description || '',
+      startAt: r.missions.start_at,
+      endAt: r.missions.end_at,
+      duration: r.missions.duration || 120,
+      association: r.missions.associations?.name || 'Association',
+      status: r.status
+    }));
+
+  // Heures validées (missions complétées × durée)
+  const totalHours = Math.floor(
+    completedRegistrations.reduce((sum, r) => {
+      const duration = r.missions?.duration || 120;
+      return sum + duration;
+    }, 0) / 60
+  );
+
+  // Nombre d'associations uniques
+  const uniqueAssociations = new Set(
+    registrations
+      ?.map(r => r.missions?.association_id)
+      .filter(Boolean)
+  );
+
+  // TODO: Récupérer les vrais badges depuis la table badges
+  // Pour l'instant, on utilise des badges mockés
+  const recentBadges = [
+    {
+      id: '1',
+      name: 'Première Mission',
+      description: 'Complétez votre première mission',
+      icon: '🎯',
+      earnedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // Il y a 2 jours
+      color: '#18534F'
     },
-    en: {
-      welcome: 'Welcome',
-      subtitle: 'This is your personal Fourmis space',
-      activeMissions: 'Active missions',
-      badgesEarned: 'Badges earned',
-      associations: 'Clubs',
-      validatedHours: 'Validated hours',
-      upcomingMissions: 'Upcoming missions',
-      recentActivity: 'Recent activity',
-      tutoring: 'Math Tutoring',
-      tomorrow: 'Tomorrow at 2:00 PM',
-      workshop: 'Ecology Workshop',
-      friday: 'Friday at 10:00 AM',
-      badgeUnlocked: 'Badge unlocked:',
-      expertTutor: 'Expert Tutor',
-      daysAgo: '',
-      missionCompleted: 'Mission completed:',
-      schoolSupport: 'School Support',
-      newRegistration: 'New registration:',
-      sustainableClub: 'Sustainable Development Club',
-      noAssociationTitle: 'No association',
-      noAssociationMessage: 'You must be a member of an association to access the association dashboard.',
-      noAssociationHelp: 'Please contact an administrator or join an association.',
-      wrongRoleTitle: 'Access denied',
-      wrongRoleMessage: 'The association dashboard is reserved for ASSOCIATION type accounts.',
-      wrongRoleHelp: 'Your current account is student, school or admin type. Please log in with an association account.',
+    {
+      id: '2',
+      name: 'Engagement Social',
+      description: '5 missions dans le domaine social',
+      icon: '🤝',
+      earnedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // Il y a 5 jours
+      color: '#226D68'
     },
+    {
+      id: '3',
+      name: 'Marathonien',
+      description: '20 heures de bénévolat',
+      icon: '⏱️',
+      earnedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(), // Il y a 10 jours
+      color: '#D6955B'
+    }
+  ];
+
+  const stats = {
+    activeMissions: confirmedRegistrations.length,
+    completedMissions: completedRegistrations.length,
+    associations: uniqueAssociations.size,
+    validatedHours: totalHours
   };
 
-  const text = t[locale];
+  const userData = {
+    id: schoolMember.id,
+    firstName: schoolMember.first_name || userProfile.full_name?.split(' ')[0] || 'Étudiant',
+    lastName: schoolMember.last_name || '',
+    email: user.email || ''
+  };
+
+  console.log('📊 STUDENT DASHBOARD DATA:');
+  console.log('👤 Student:', userData.firstName, userData.lastName);
+  console.log('📈 Stats:', stats);
+  console.log('🎯 Upcoming missions:', upcomingMissions.length);
+  console.log('🏆 Recent badges:', recentBadges.length);
 
   return (
-    <div className="p-8">
-      {error === 'wrong_role' && (
-        <div className="mb-8 bg-red-50 border-2 border-red-400 rounded-xl p-6 shadow-lg">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center shrink-0">
-              <span className="text-2xl">🚫</span>
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-bold text-gray-900 mb-2">
-                {text.wrongRoleTitle}
-              </h3>
-              <p className="text-gray-700 mb-2">
-                {text.wrongRoleMessage}
-              </p>
-              <p className="text-sm text-gray-600">
-                {text.wrongRoleHelp}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {error === 'no_association' && (
-        <div className="mb-8 bg-yellow-50 border-2 border-yellow-400 rounded-xl p-6 shadow-lg">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center shrink-0">
-              <span className="text-2xl">⚠️</span>
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-bold text-gray-900 mb-2">
-                {text.noAssociationTitle}
-              </h3>
-              <p className="text-gray-700 mb-2">
-                {text.noAssociationMessage}
-              </p>
-              <p className="text-sm text-gray-600">
-                {text.noAssociationHelp}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          {text.welcome}, {user?.email?.split('@')[0]} ! 👋
-        </h1>
-        <p className="text-gray-600">
-          {text.subtitle}
-        </p>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-[#18534F]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">{text.activeMissions}</p>
-              <p className="text-3xl font-bold text-gray-900">3</p>
-            </div>
-            <div className="text-4xl">📚</div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-[#226D68]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">{text.badgesEarned}</p>
-              <p className="text-3xl font-bold text-gray-900">12</p>
-            </div>
-            <div className="text-4xl">🏆</div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-[#D6955B]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">{text.associations}</p>
-              <p className="text-3xl font-bold text-gray-900">2</p>
-            </div>
-            <div className="text-4xl">👥</div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-[#FEEAA1]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">{text.validatedHours}</p>
-              <p className="text-3xl font-bold text-gray-900">45h</p>
-            </div>
-            <div className="text-4xl">⏱️</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            {text.upcomingMissions}
-          </h2>
-          <div className="space-y-4">
-            <div className="flex items-start gap-4 p-4 bg-[#ECF8F6] rounded-lg">
-              <div className="text-3xl">📚</div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900">{text.tutoring}</h3>
-                <p className="text-sm text-gray-600">{text.tomorrow}</p>
-                <div className="mt-2">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#18534F] text-white">
-                    2h
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4 p-4 bg-[#ECF8F6] rounded-lg">
-              <div className="text-3xl">🌱</div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900">{text.workshop}</h3>
-                <p className="text-sm text-gray-600">{text.friday}</p>
-                <div className="mt-2">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#18534F] text-white">
-                    3h
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            {text.recentActivity}
-          </h2>
-          <div className="space-y-4">
-            <div className="flex items-start gap-4">
-              <div className="w-2 h-2 mt-2 rounded-full bg-[#18534F]"></div>
-              <div className="flex-1">
-                <p className="text-sm text-gray-900">
-                  <span className="font-semibold">{text.badgeUnlocked}</span> {text.expertTutor}
-                </p>
-                <p className="text-xs text-gray-500">{text.daysAgo} 2 jours</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4">
-              <div className="w-2 h-2 mt-2 rounded-full bg-[#226D68]"></div>
-              <div className="flex-1">
-                <p className="text-sm text-gray-900">
-                  <span className="font-semibold">{text.missionCompleted}</span> {text.schoolSupport}
-                </p>
-                <p className="text-xs text-gray-500">{text.daysAgo} 3 jours</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4">
-              <div className="w-2 h-2 mt-2 rounded-full bg-[#D6955B]"></div>
-              <div className="flex-1">
-                <p className="text-sm text-gray-900">
-                  <span className="font-semibold">{text.newRegistration}</span> {text.sustainableClub}
-                </p>
-                <p className="text-xs text-gray-500">{text.daysAgo} 5 jours</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default function DashboardPage() {
-  return (
-    <Suspense fallback={
-      <div className="p-8">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-        </div>
-      </div>
-    }>
-      <DashboardContent />
-    </Suspense>
+    <StudentDashboardClient
+      user={userData}
+      stats={stats}
+      upcomingMissions={upcomingMissions}
+      recentBadges={recentBadges}
+    />
   );
 }

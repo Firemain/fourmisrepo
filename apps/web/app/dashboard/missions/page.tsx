@@ -1,65 +1,122 @@
-'use client';
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+import MissionsClient from './_components/MissionsClient';
 
-import { useState, useEffect } from 'react';
-import { useLocale } from '@/lib/i18n/LocaleContext';
-import { useAuth } from '@/lib/auth/AuthContext';
-import { getMissions, saveStudentPreferences } from './actions';
-import { Search, X, Clock, MapPin, Users, Heart, Sparkles, Filter, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
+export default async function MissionsPage() {
+  const supabase = await createClient();
 
-interface Mission {
-  id: string;
-  title: string;
-  description: string;
-  start_at: string;
-  end_at: string;
-  estimated_duration: number;
-  max_participants: number;
-  location: string;
-  tags?: string[];
-  association?: { name: string; };
-}
+  // 1. Vérifier l'authentification
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
 
-export default function MissionsPage() {
-  const { locale } = useLocale();
-  const { user } = useAuth();
-  const [missions, setMissions] = useState<Mission[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchKeywords, setSearchKeywords] = useState<string[]>([]);
-  const [currentKeyword, setCurrentKeyword] = useState('');
-  const [activeTab, setActiveTab] = useState<'all' | 'for-you'>('all');
-  const [showQuestionnaire, setShowQuestionnaire] = useState(false);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [currentMissionIndex, setCurrentMissionIndex] = useState(0);
-  const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
-  const [userProfile, setUserProfile] = useState({ interests: [] as string[], availability: '', groupSize: '', missionPreferences: [] as string[] });
+  // 2. Récupérer le user_profile
+  const { data: userProfile } = await supabase
+    .from('user_profiles')
+    .select('id, full_name')
+    .eq('user_id', user.id)
+    .single();
 
-  const t = { fr: { pageTitle: 'Missions', pageSubtitle: 'Découvre et participe aux missions qui te correspondent', tabAll: 'Toutes les missions', tabForYou: 'Pour toi', searchPlaceholder: 'Rechercher par mots-clés...', addKeyword: 'Ajouter', activeFilters: 'Filtres actifs', clearAll: 'Tout effacer', participants: 'participants', duration: 'durée', location: 'lieu', seeMore: 'Voir plus', register: 'S\'inscrire', noMissions: 'Aucune mission disponible', noMissionsDesc: 'Aucune mission ne correspond à tes critères.', startQuestionnaire: 'Commencer le questionnaire', forYouTitle: 'Personnalise tes recommandations', forYouSubtitle: 'Aide-nous à te proposer les missions parfaites pour toi', previous: 'Précédent', next: 'Suivant', finish: 'Terminer', restart: 'Recommencer', notInterested: 'Pas intéressé', interested: 'M\'intéresse !', q1Title: 'Quels domaines t\'intéressent ?', q1Subtitle: 'Sélectionne tout ce qui t\'attire', q1Options: [{ id: 'education', label: '📚 Éducation', color: 'bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-300' }, { id: 'environment', label: '🌱 Environnement', color: 'bg-green-100 text-green-800 hover:bg-green-200 border-green-300' }, { id: 'sport', label: '⚽ Sport', color: 'bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-300' }, { id: 'culture', label: '🎭 Culture', color: 'bg-pink-100 text-pink-800 hover:bg-pink-200 border-pink-300' }, { id: 'solidarity', label: '❤️ Solidarité', color: 'bg-red-100 text-red-800 hover:bg-red-200 border-red-300' }, { id: 'technology', label: '💻 Technologie', color: 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200 border-indigo-300' }], q2Title: 'Ta disponibilité ?', q2Subtitle: 'Pour te proposer des missions adaptées', q2Options: [{ id: '1-2h', label: '🗓️ 1-2h par semaine', desc: 'Engagement léger' }, { id: '3-5h', label: '⏰ 3-5h par semaine', desc: 'Engagement régulier' }, { id: '6-10h', label: '📅 6-10h par semaine', desc: 'Engagement soutenu' }, { id: '10h+', label: '⚡ Plus de 10h', desc: 'Engagement intensif' }], q3Title: 'Préfères-tu travailler...', q3Subtitle: 'Ton style de collaboration', q3Options: [{ id: 'alone', label: '🧑 Seul(e)', desc: 'Je préfère l\'autonomie' }, { id: 'small', label: '👥 En petit groupe (2-5)', desc: '2-5 personnes' }, { id: 'large', label: '👫 En grand groupe (5+)', desc: 'Plus de 5 personnes' }, { id: 'any', label: '🔄 Peu importe', desc: 'Je m\'adapte' }], q4Title: 'Swipe les missions qui t\'attirent', q4Subtitle: 'À droite si ça t\'intéresse, à gauche sinon', selected: 'sélectionné', selectedPlural: 'sélectionnés' }, en: { pageTitle: 'Missions', pageSubtitle: 'Discover and join missions that match you', tabAll: 'All missions', tabForYou: 'For you', searchPlaceholder: 'Search by keywords...', addKeyword: 'Add', activeFilters: 'Active filters', clearAll: 'Clear all', participants: 'participants', duration: 'duration', location: 'location', seeMore: 'See more', register: 'Register', noMissions: 'No missions available', noMissionsDesc: 'No missions match your criteria.', startQuestionnaire: 'Start questionnaire', forYouTitle: 'Personalize your recommendations', forYouSubtitle: 'Help us suggest perfect missions for you', previous: 'Previous', next: 'Next', finish: 'Finish', restart: 'Restart', notInterested: 'Not interested', interested: 'Interested!', q1Title: 'What interests you?', q1Subtitle: 'Select everything that attracts you', q1Options: [{ id: 'education', label: '📚 Education', color: 'bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-300' }, { id: 'environment', label: '🌱 Environment', color: 'bg-green-100 text-green-800 hover:bg-green-200 border-green-300' }, { id: 'sport', label: '⚽ Sport', color: 'bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-300' }, { id: 'culture', label: '🎭 Culture', color: 'bg-pink-100 text-pink-800 hover:bg-pink-200 border-pink-300' }, { id: 'solidarity', label: '❤️ Solidarity', color: 'bg-red-100 text-red-800 hover:bg-red-200 border-red-300' }, { id: 'technology', label: '💻 Technology', color: 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200 border-indigo-300' }], q2Title: 'Your availability?', q2Subtitle: 'To suggest adapted missions', q2Options: [{ id: '1-2h', label: '🗓️ 1-2h per week', desc: 'Light commitment' }, { id: '3-5h', label: '⏰ 3-5h per week', desc: 'Regular commitment' }, { id: '6-10h', label: '📅 6-10h per week', desc: 'Strong commitment' }, { id: '10h+', label: '⚡ More than 10h', desc: 'Intensive commitment' }], q3Title: 'Do you prefer to work...', q3Subtitle: 'Your collaboration style', q3Options: [{ id: 'alone', label: '🧑 Alone', desc: 'I prefer autonomy' }, { id: 'small', label: '👥 Small group (2-5)', desc: '2-5 people' }, { id: 'large', label: '👫 Large group (5+)', desc: 'More than 5 people' }, { id: 'any', label: '🔄 No preference', desc: 'I adapt' }], q4Title: 'Swipe missions you like', q4Subtitle: 'Right if interested, left if not', selected: 'selected', selectedPlural: 'selected' } };
+  if (!userProfile) redirect('/login');
 
-  const text = t[locale];
-  const questions = [{ type: 'interests', title: text.q1Title, subtitle: text.q1Subtitle, options: text.q1Options }, { type: 'availability', title: text.q2Title, subtitle: text.q2Subtitle, options: text.q2Options }, { type: 'groupSize', title: text.q3Title, subtitle: text.q3Subtitle, options: text.q3Options }, { type: 'swipe', title: text.q4Title, subtitle: text.q4Subtitle, options: [] }];
+  // 3. Récupérer le school_member
+  const { data: schoolMember } = await supabase
+    .from('school_members')
+    .select('id, school_id, first_name, last_name')
+    .eq('user_profile_id', userProfile.id)
+    .single();
 
-  useEffect(() => { fetchMissions(); }, [searchKeywords]);
+  if (!schoolMember) {
+    return (
+      <div className="p-8">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+          <p className="text-yellow-800">
+            Erreur : impossible de récupérer vos informations d'étudiant.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-  const fetchMissions = async () => { try { setLoading(true); const { missions: data, error } = await getMissions(searchKeywords); if (error) { console.error('Error fetching missions:', error); } else { setMissions(data); } } catch (error) { console.error('Error fetching missions:', error); } finally { setLoading(false); } };
-  const handleAddKeyword = () => { if (currentKeyword.trim() && !searchKeywords.includes(currentKeyword.trim())) { setSearchKeywords([...searchKeywords, currentKeyword.trim()]); setCurrentKeyword(''); } };
-  const handleRemoveKeyword = (keyword: string) => { setSearchKeywords(searchKeywords.filter((k) => k !== keyword)); };
-  const handleKeyPress = (e: React.KeyboardEvent) => { if (e.key === 'Enter') { handleAddKeyword(); } };
-  const formatDate = (dateString: string) => { const date = new Date(dateString); return date.toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' }); };
-  const formatDuration = (minutes: number) => { const hours = Math.floor(minutes / 60); const mins = minutes % 60; if (hours === 0) return `${mins}min`; if (mins === 0) return `${hours}h`; return `${hours}h${mins}`; };
-  const handleStartQuestionnaire = () => { setShowQuestionnaire(true); setCurrentQuestionIndex(0); setCurrentMissionIndex(0); setUserProfile({ interests: [], availability: '', groupSize: '', missionPreferences: [] }); };
-  const handleNextQuestion = () => { if (currentQuestionIndex < questions.length - 1) { setCurrentQuestionIndex(currentQuestionIndex + 1); } else { handleFinishQuestionnaire(); } };
-  const handlePreviousQuestion = () => { if (currentQuestionIndex > 0) { setCurrentQuestionIndex(currentQuestionIndex - 1); } };
-  const handleInterestToggle = (interestId: string) => { setUserProfile(prev => ({ ...prev, interests: prev.interests.includes(interestId) ? prev.interests.filter(id => id !== interestId) : [...prev.interests, interestId] })); };
-  const handleMissionSwipe = (direction: 'left' | 'right') => { setSwipeDirection(direction); if (direction === 'right') { const mission = missions[currentMissionIndex]; setUserProfile(prev => ({ ...prev, missionPreferences: [...prev.missionPreferences, mission.id] })); } setTimeout(() => { setSwipeDirection(null); if (currentMissionIndex < missions.length - 1 && currentMissionIndex < 4) { setCurrentMissionIndex(prev => prev + 1); } else { handleNextQuestion(); } }, 300); };
-  const handleFinishQuestionnaire = async () => { if (!user) return; const preferencesData = { user_id: user.id, user_profile_id: user.id, interests: userProfile.interests, availability: userProfile.availability, group_size: userProfile.groupSize, mission_swipes: userProfile.missionPreferences.map(id => ({ missionId: id, liked: true, timestamp: new Date().toISOString() })) }; try { const result = await saveStudentPreferences(preferencesData); if (result.error) { console.error('Error saving preferences:', result.error); } else { console.log('Preferences saved!'); } } catch (error) { console.error('Error:', error); } setShowQuestionnaire(false); };
+  // 4. Récupérer TOUTES les missions publiées
+  const { data: allMissions, error: missionsError } = await supabase
+    .from('missions')
+    .select(`
+      id,
+      title,
+      description,
+      start_at,
+      end_at,
+      duration,
+      maximum_participant,
+      status,
+      association_id,
+      contact_id,
+      associations (
+        id,
+        name
+      ),
+      contact:contacts (
+        id,
+        street,
+        city,
+        postal_code
+      )
+    `)
+    .in('status', ['PUBLISHED', 'ACTIVE']) // Accepter PUBLISHED et ACTIVE
+    .gte('end_at', new Date().toISOString())
+    .order('start_at', { ascending: true });
 
-  const renderMissionCard = (mission: Mission) => (<Card key={mission.id} className="group hover:shadow-xl transition-all duration-300 overflow-hidden border-gray-100"><div className="p-6"><div className="flex justify-between items-start mb-4"><div className="flex-1"><h3 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-[#18534F] transition-colors">{mission.title}</h3>{mission.association && (<p className="text-sm text-[#226D68] font-medium">{mission.association.name}</p>)}</div><Badge className="bg-[#ECF8F6] text-[#18534F] hover:bg-[#ECF8F6] border-0 shrink-0">{formatDate(mission.start_at)}</Badge></div><p className="text-sm text-gray-600 mb-4 line-clamp-2">{mission.description}</p><div className="flex flex-wrap gap-3 mb-4 text-sm text-gray-600"><div className="flex items-center gap-1.5"><Clock className="w-4 h-4 text-[#18534F]" /><span>{formatDuration(mission.estimated_duration)}</span></div><div className="flex items-center gap-1.5"><Users className="w-4 h-4 text-[#18534F]" /><span>{mission.max_participants} {text.participants}</span></div><div className="flex items-center gap-1.5"><MapPin className="w-4 h-4 text-[#18534F]" /><span className="line-clamp-1">{mission.location}</span></div></div><div className="flex gap-2"><Button variant="outline" className="flex-1 hover:bg-gray-50">{text.seeMore}</Button><Button className="flex-1 bg-[#18534F] hover:bg-[#226D68] text-white">{text.register}</Button></div></div></Card>);
+  if (missionsError) {
+    console.error('❌ Error fetching missions:', missionsError);
+  }
+  console.log('🔍 Raw missions data:', allMissions);
 
-  const renderQuestionnaireStep = () => { const question = questions[currentQuestionIndex]; if (question.type === 'interests') { return (<div className="space-y-8"><div className="text-center"><h2 className="text-3xl font-bold text-[#18534F] mb-2">{question.title}</h2><p className="text-gray-600">{question.subtitle}</p></div><div className="grid grid-cols-2 md:grid-cols-3 gap-4 max-w-2xl mx-auto">{text.q1Options.map((interest: any) => (<button key={interest.id} onClick={() => handleInterestToggle(interest.id)} className={`p-6 rounded-2xl border-2 transition-all duration-300 transform hover:scale-105 ${userProfile.interests.includes(interest.id) ? `${interest.color} border-[#18534F] shadow-lg` : 'bg-white border-gray-200 hover:border-[#18534F]'}`}><span className="font-semibold text-lg">{interest.label}</span></button>))}</div><p className="text-center text-sm text-gray-500">{userProfile.interests.length} {userProfile.interests.length > 1 ? text.selectedPlural : text.selected}</p></div>); } if (question.type === 'availability') { return (<div className="space-y-8"><div className="text-center"><h2 className="text-3xl font-bold text-[#18534F] mb-2">{question.title}</h2><p className="text-gray-600">{question.subtitle}</p></div><div className="grid gap-4 max-w-lg mx-auto">{text.q2Options.map((option: any) => (<button key={option.id} onClick={() => setUserProfile(prev => ({ ...prev, availability: option.id }))} className={`p-6 rounded-2xl border-2 text-left transition-all duration-300 transform hover:scale-105 ${userProfile.availability === option.id ? 'bg-[#18534F] text-white border-[#18534F] shadow-lg' : 'bg-white border-gray-200 hover:border-[#18534F]'}`}><div className="font-semibold text-lg mb-1">{option.label}</div><div className="text-sm opacity-80">{option.desc}</div></button>))}</div></div>); } if (question.type === 'groupSize') { return (<div className="space-y-8"><div className="text-center"><h2 className="text-3xl font-bold text-[#18534F] mb-2">{question.title}</h2><p className="text-gray-600">{question.subtitle}</p></div><div className="grid gap-4 max-w-lg mx-auto">{text.q3Options.map((option: any) => (<button key={option.id} onClick={() => setUserProfile(prev => ({ ...prev, groupSize: option.id }))} className={`p-6 rounded-2xl border-2 text-left transition-all duration-300 transform hover:scale-105 ${userProfile.groupSize === option.id ? 'bg-[#18534F] text-white border-[#18534F] shadow-lg' : 'bg-white border-gray-200 hover:border-[#18534F]'}`}><div className="font-semibold text-lg mb-1">{option.label}</div><div className="text-sm opacity-80">{option.desc}</div></button>))}</div></div>); } if (question.type === 'swipe' && missions.length > 0) { if (currentMissionIndex >= Math.min(missions.length, 5)) { handleNextQuestion(); return null; } const mission = missions[currentMissionIndex]; return (<div className="space-y-8"><div className="text-center"><h2 className="text-3xl font-bold text-[#18534F] mb-2">{question.title}</h2><p className="text-gray-600 mb-4">{question.subtitle}</p><div className="flex justify-center items-center gap-3"><div className="flex items-center gap-2 text-red-500"><X className="w-5 h-5" /><span className="text-sm font-medium">{text.notInterested}</span></div><div className="mx-4 text-gray-400">•</div><div className="flex items-center gap-2 text-green-500"><Heart className="w-5 h-5" /><span className="text-sm font-medium">{text.interested}</span></div></div></div><div className="max-w-md mx-auto"><div className={`bg-white rounded-3xl p-8 shadow-2xl border-2 border-gray-100 transition-all duration-300 transform ${swipeDirection === 'left' ? '-translate-x-full opacity-0' : swipeDirection === 'right' ? 'translate-x-full opacity-0' : ''}`}><div className="text-center mb-6"><div className="text-7xl mb-4">🎯</div><h3 className="text-2xl font-bold text-[#18534F] mb-2">{mission.title}</h3>{mission.association && (<p className="text-[#226D68] font-medium">{mission.association.name}</p>)}</div><p className="text-gray-600 text-center mb-6">{mission.description}</p><div className="flex justify-center gap-4 text-sm text-gray-600 mb-8"><div className="flex items-center gap-1"><Clock className="w-4 h-4" /><span>{formatDuration(mission.estimated_duration)}</span></div><div className="flex items-center gap-1"><Users className="w-4 h-4" /><span>{mission.max_participants}</span></div></div><div className="flex justify-center gap-8"><button onClick={() => handleMissionSwipe('left')} className="w-20 h-20 bg-red-100 hover:bg-red-200 text-red-500 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110 shadow-lg"><X className="w-8 h-8" /></button><button onClick={() => handleMissionSwipe('right')} className="w-20 h-20 bg-green-100 hover:bg-green-200 text-green-500 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110 shadow-lg"><Heart className="w-8 h-8" /></button></div></div><div className="text-center mt-6"><p className="text-sm text-gray-500 mb-2">{currentMissionIndex + 1} / {Math.min(missions.length, 5)}</p><div className="flex justify-center gap-2">{Array.from({ length: Math.min(missions.length, 5) }).map((_, index) => (<div key={index} className={`w-2 h-2 rounded-full transition-all duration-300 ${index <= currentMissionIndex ? 'bg-[#18534F] w-6' : 'bg-gray-300'}`} />))}</div></div></div></div>); } return null; };
+  // 5. Récupérer les préférences de l'étudiant (pour les recommandations)
+  const { data: preferences } = await supabase
+    .from('student_preferences')
+    .select('*')
+    .eq('school_member_id', schoolMember.id)
+    .single();
 
-  return (<div className="min-h-screen bg-white"><div className="bg-linear-to-r from-[#ECF8F6] to-white border-b border-gray-100"><div className="p-8"><div className="max-w-7xl mx-auto"><h1 className="text-4xl font-bold text-gray-900 mb-2">{text.pageTitle}</h1><p className="text-gray-600 text-lg">{text.pageSubtitle}</p></div></div></div><div className="max-w-7xl mx-auto p-8"><div className="bg-white rounded-2xl border-2 border-gray-200 p-6 mb-8 shadow-sm"><div className="flex gap-3 mb-4"><div className="relative flex-1"><Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" /><Input type="text" placeholder={text.searchPlaceholder} value={currentKeyword} onChange={(e: any) => setCurrentKeyword(e.target.value)} onKeyPress={handleKeyPress} className="pl-12 h-12 border-gray-200 focus:border-[#18534F] rounded-xl" /></div><Button onClick={handleAddKeyword} className="bg-[#18534F] hover:bg-[#226D68] h-12 px-8 rounded-xl" disabled={!currentKeyword.trim()}><Filter className="w-5 h-5 mr-2" />{text.addKeyword}</Button></div>{searchKeywords.length > 0 && (<div className="flex flex-wrap gap-2 items-center"><span className="text-sm text-gray-600 font-medium">{text.activeFilters}:</span>{searchKeywords.map((keyword) => (<Badge key={keyword} className="bg-[#ECF8F6] text-[#18534F] hover:bg-[#ECF8F6] border-0 gap-2 px-4 py-2 rounded-full">{keyword}<button onClick={() => handleRemoveKeyword(keyword)} className="hover:opacity-70"><X className="w-3.5 h-3.5" /></button></Badge>))}<Button variant="ghost" size="sm" onClick={() => setSearchKeywords([])} className="text-red-600 hover:text-red-700 hover:bg-red-50 rounded-full">{text.clearAll}</Button></div>)}</div><div className="flex gap-4 mb-8 border-b border-gray-200"><button onClick={() => setActiveTab('all')} className={`pb-4 px-6 font-semibold transition-all relative ${activeTab === 'all' ? 'text-[#18534F]' : 'text-gray-500 hover:text-gray-700'}`}>{text.tabAll}{activeTab === 'all' && (<div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#18534F]" />)}</button><button onClick={() => setActiveTab('for-you')} className={`pb-4 px-6 font-semibold transition-all relative flex items-center gap-2 ${activeTab === 'for-you' ? 'text-[#18534F]' : 'text-gray-500 hover:text-gray-700'}`}><Sparkles className="w-5 h-5" />{text.tabForYou}{activeTab === 'for-you' && (<div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#18534F]" />)}</button></div>{activeTab === 'all' ? (loading ? (<div className="flex justify-center items-center py-20"><div className="text-center"><div className="inline-flex items-center justify-center w-16 h-16 bg-[#ECF8F6] rounded-full mb-4 animate-pulse"><span className="text-3xl">🐜</span></div><p className="text-gray-600">Chargement...</p></div></div>) : missions.length > 0 ? (<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{missions.map(renderMissionCard)}</div>) : (<div className="text-center py-20"><div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-full mb-4"><Search className="w-10 h-10 text-gray-400" /></div><h3 className="text-xl font-semibold text-gray-900 mb-2">{text.noMissions}</h3><p className="text-gray-600">{text.noMissionsDesc}</p></div>)) : (<div className="max-w-4xl mx-auto"><div className="bg-linear-to-br from-[#18534F] to-[#226D68] rounded-3xl p-12 text-white text-center shadow-2xl"><div className="mb-6"><Sparkles className="w-16 h-16 mx-auto mb-4" /><h2 className="text-3xl font-bold mb-3">{text.forYouTitle}</h2><p className="text-white/90 text-lg">{text.forYouSubtitle}</p></div><Button onClick={handleStartQuestionnaire} className="bg-white text-[#18534F] hover:bg-gray-100 text-lg px-8 py-6 h-auto rounded-full shadow-lg">{text.startQuestionnaire}</Button></div></div>)}</div>{showQuestionnaire && (<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"><div className="bg-linear-to-br from-[#ECF8F6] via-white to-[#ECF8F6] rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl"><div className="bg-white border-b border-gray-200 p-6"><div className="flex items-center justify-between mb-4"><h2 className="text-2xl font-bold text-[#18534F]">Questionnaire</h2><Button variant="ghost" size="icon" onClick={() => setShowQuestionnaire(false)} className="rounded-full"><X className="w-5 h-5" /></Button></div><div className="flex items-center gap-4"><div className="flex-1 bg-gray-200 rounded-full h-3"><div className="bg-linear-to-r from-[#226D68] to-[#18534F] h-3 rounded-full transition-all duration-500" style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }} /></div><span className="text-sm font-medium text-gray-600">{currentQuestionIndex + 1}/{questions.length}</span></div></div><div className="p-12 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 200px)' }}>{renderQuestionnaireStep()}</div><div className="bg-white border-t border-gray-200 p-6"><div className="flex justify-between items-center"><Button variant="outline" onClick={handlePreviousQuestion} disabled={currentQuestionIndex === 0} className="rounded-full px-6"><ChevronLeft className="w-5 h-5 mr-2" />{text.previous}</Button>{questions[currentQuestionIndex].type === 'swipe' ? (<Button variant="outline" onClick={() => setCurrentMissionIndex(0)} className="rounded-full px-6"><RotateCcw className="w-5 h-5 mr-2" />{text.restart}</Button>) : (<Button onClick={handleNextQuestion} disabled={(questions[currentQuestionIndex].type === 'interests' && userProfile.interests.length === 0) || (questions[currentQuestionIndex].type === 'availability' && !userProfile.availability) || (questions[currentQuestionIndex].type === 'groupSize' && !userProfile.groupSize)} className="bg-[#18534F] hover:bg-[#226D68] rounded-full px-8">{currentQuestionIndex === questions.length - 1 ? text.finish : text.next}<ChevronRight className="w-5 h-5 ml-2" /></Button>)}</div></div></div></div>)}</div>);
+  // 6. Formater les missions
+  const missions = allMissions?.map((mission: any) => ({
+    id: mission.id,
+    title: mission.title,
+    description: mission.description || '',
+    start_at: mission.start_at,
+    end_at: mission.end_at,
+    duration: mission.duration || 120, // en minutes
+    maxParticipants: mission.maximum_participant || 20,
+    location: mission.contact 
+      ? `${mission.contact.street}, ${mission.contact.city}` 
+      : 'À définir',
+    status: mission.status, // ✅ Ajouté pour MissionCard
+    association: mission.associations?.name || 'Association',
+    associationId: mission.association_id,
+    // TODO: Ajouter les vraies données quand les tables seront prêtes
+    participants: 0, // À récupérer depuis mission_registrations
+    odd: [], // À récupérer depuis la table de tags/ODDs
+    difficulty: 'Modéré' as const, // À récupérer depuis la mission ou calculer
+    skills: [] // À récupérer depuis la table de compétences
+  })) || [];
+
+  console.log('📊 MISSIONS PAGE DATA:');
+  console.log('👤 School member:', schoolMember.id);
+  console.log('🎯 Total missions found:', missions.length);
+  console.log('⚙️ Has preferences:', !!preferences);
+
+  // 7. Préparer les données utilisateur
+  const userData = {
+    id: schoolMember.id,
+    firstName: schoolMember.first_name || userProfile.full_name?.split(' ')[0] || 'Étudiant',
+    lastName: schoolMember.last_name || '',
+    preferences: preferences || null
+  };
+
+  return (
+    <MissionsClient 
+      missions={missions}
+      user={userData}
+    />
+  );
 }

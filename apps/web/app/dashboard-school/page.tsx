@@ -52,9 +52,21 @@ export default async function SchoolDashboardPage(props: {
 
   // 4. Gestion des filtres de dates
   const now = new Date();
-  const defaultStart = new Date(now);
-  defaultStart.setDate(defaultStart.getDate() - 30); // 30 derniers jours par défaut
+  
+  // Calculer le début de l'année scolaire (1er septembre)
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth(); // 0 = janvier, 8 = septembre
+  
+  // Si on est avant septembre (mois 0-7), année scolaire = septembre année précédente
+  // Si on est après septembre (mois 8-11), année scolaire = septembre année courante
+  const schoolYearStart = new Date(
+    currentMonth < 8 ? currentYear - 1 : currentYear,
+    8, // septembre (0-indexed)
+    1  // 1er du mois
+  );
+  schoolYearStart.setHours(0, 0, 0, 0);
 
+  const defaultStart = schoolYearStart;
   const startDate = searchParams.start ? new Date(searchParams.start) : defaultStart;
   const endDate = searchParams.end ? new Date(searchParams.end) : now;
 
@@ -72,8 +84,23 @@ export default async function SchoolDashboardPage(props: {
 
   const memberIds = schoolMembers?.map(m => m.id) || [];
 
+  console.log('📊 DASHBOARD DATA LOGS:');
+  console.log('🏫 School ID:', schoolId);
+  console.log('👥 Total school members found:', schoolMembers?.length || 0);
+  console.log('📋 School member IDs:', memberIds);
+  console.log('📋 First member ID type:', typeof memberIds[0], memberIds[0]);
+
+  // Test: récupérer TOUTES les inscriptions sans filtre
+  const { data: allRegistrationsTest, error: testError } = await supabase
+    .from('mission_registrations')
+    .select('id, school_member_id, status');
+
+  console.log('🧪 TEST: All registrations in DB (no filter):', allRegistrationsTest?.length || 0);
+  console.log('🧪 TEST: Sample registration:', allRegistrationsTest?.[0]);
+  if (testError) console.error('🧪 TEST Error:', testError);
+
   // 7. Récupérer TOUTES les inscriptions aux missions
-  const { data: allRegistrations } = await supabase
+  const { data: allRegistrations, error: registrationsError } = await supabase
     .from('mission_registrations')
     .select(`
       id,
@@ -84,11 +111,18 @@ export default async function SchoolDashboardPage(props: {
     `)
     .in('school_member_id', memberIds);
 
+  console.log('📝 All registrations found:', allRegistrations?.length || 0);
+  console.log('📝 Registration data sample:', allRegistrations?.slice(0, 3));
+  if (registrationsError) console.error('❌ Registrations error:', registrationsError);
+
   // 8. Filtrer les inscriptions par période
   const registrationsInPeriod = allRegistrations?.filter(r => {
     const createdAt = new Date(r.created_at);
     return createdAt >= startDate && createdAt <= endDate;
   }) || [];
+
+  console.log('📅 Date range:', { start: startDate.toISOString(), end: endDate.toISOString() });
+  console.log('📊 Registrations in period:', registrationsInPeriod.length);
 
   // 9. KPI : Étudiants actifs (avec au moins une inscription dans la période)
   const activeStudentsInPeriod = registrationsInPeriod.length > 0
@@ -117,15 +151,21 @@ export default async function SchoolDashboardPage(props: {
     .eq('school_id', schoolId)
     .gte('created_at', monthStart.toISOString());
 
-  // 15. Récupérer les missions actives (publiées et futures)
-  const nowIso = new Date().toISOString();
-  const { data: activeMissions } = await supabase
-    .from('missions')
-    .select('id, title, association_id')
-    .eq('status', 'PUBLISHED')
-    .gte('start_at', nowIso);
+  // 15. Calculer les missions complétées et à venir
+  // Missions complétées = missions avec au moins 1 inscription COMPLETED
+  const completedMissionIds = new Set(
+    allRegistrations?.filter(r => r.status === 'COMPLETED').map(r => r.mission_id) || []
+  );
+  const completedMissionsCount = completedMissionIds.size;
 
-  const activeMissionsCount = activeMissions?.length || 0;
+  // Missions à venir = missions avec inscriptions CONFIRMED (personne inscrite mais pas encore effectuée)
+  const upcomingMissionIds = new Set(
+    allRegistrations?.filter(r => r.status === 'CONFIRMED').map(r => r.mission_id) || []
+  );
+  const upcomingMissionsCount = upcomingMissionIds.size;
+
+  console.log('✅ Missions completed (with COMPLETED registrations):', completedMissionsCount);
+  console.log('📅 Missions upcoming (with CONFIRMED registrations):', upcomingMissionsCount);
 
   // 16. Récupérer les inscriptions récentes avec les détails des étudiants
   const { data: recentRegistrations } = await supabase
@@ -195,6 +235,20 @@ export default async function SchoolDashboardPage(props: {
     participantsCount: missionParticipants.get(mission.id) || 0,
   })) || [];
 
+  console.log('🏆 Top missions:', topMissions);
+  console.log('👨‍🎓 Recent students:', recentStudents);
+
+  console.log('📈 FINAL STATS:', {
+    totalStudents: totalStudents || 0,
+    activeStudents: activeStudentsInPeriod,
+    totalHours,
+    completedMissions: completedMissionsCount,
+    upcomingMissions: upcomingMissionsCount,
+    totalRegistrations,
+    completionRate,
+    newStudentsThisMonth: newStudentsThisMonth || 0,
+  });
+
   // 19. Préparer les données pour le client
   const firstName = schoolAdmin.first_name || userProfile?.full_name?.split(' ')[0] || 'Responsable';
   const schoolName = (schoolAdmin.schools as any)?.name || 'École';
@@ -207,9 +261,9 @@ export default async function SchoolDashboardPage(props: {
         totalStudents: totalStudents || 0,
         activeStudents: activeStudentsInPeriod,
         totalHours,
-        activeMissions: activeMissionsCount,
+        completedMissions: completedMissionsCount,
+        upcomingMissions: upcomingMissionsCount,
         totalRegistrations,
-        completedMissions: completedInPeriod,
         completionRate,
         newStudentsThisMonth: newStudentsThisMonth || 0,
       }}

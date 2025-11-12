@@ -60,7 +60,6 @@ type StudentData = {
     missions: number;
     hours: number;
     status: 'active' | 'inactive';
-    lastActivity: string;
     createdAt: string;
   }>;
   levels: Array<{ value: string; label: string }>;
@@ -108,7 +107,6 @@ export default function StudentsListClient({ data }: { data: StudentData }) {
       missions: 'Missions',
       hours: 'Heures',
       status: 'Statut',
-      lastActivity: 'Dernière activité',
       actions: 'Actions',
       
       viewProfile: 'Voir le profil',
@@ -362,7 +360,6 @@ export default function StudentsListClient({ data }: { data: StudentData }) {
               <TableHead className="text-center">{text.missions}</TableHead>
               <TableHead className="text-center">{text.hours}</TableHead>
               <TableHead className="text-center">{text.status}</TableHead>
-              <TableHead>{text.lastActivity}</TableHead>
               <TableHead className="text-right">{text.actions}</TableHead>
             </TableRow>
           </TableHeader>
@@ -375,12 +372,6 @@ export default function StudentsListClient({ data }: { data: StudentData }) {
               >
                 <TableCell className="font-medium">
                   <div className="flex items-center gap-3">
-                    <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm"
-                      style={{ backgroundColor: getAvatarColor(student.id) }}
-                    >
-                      {getInitials(student.firstName, student.lastName)}
-                    </div>
                     <div>
                       <p className="font-medium">{student.firstName} {student.lastName}</p>
                     </div>
@@ -409,9 +400,6 @@ export default function StudentsListClient({ data }: { data: StudentData }) {
                   >
                     {student.status === 'active' ? text.active : text.inactive}
                   </Badge>
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {formatTimeAgo(student.lastActivity)}
                 </TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>

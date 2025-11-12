@@ -13,9 +13,9 @@ interface SchoolDashboardClientProps {
     totalStudents: number;
     activeStudents: number;
     totalHours: number;
-    activeMissions: number;
-    totalRegistrations: number;
     completedMissions: number;
+    upcomingMissions: number;
+    totalRegistrations: number;
     completionRate: number;
     newStudentsThisMonth: number;
   };
@@ -66,7 +66,7 @@ export default function SchoolDashboardClient({
       activeMissions: 'Missions actives',
       totalRegistrations: 'Inscriptions',
       completedMissions: 'Missions complétées',
-      completionRate: 'Taux de complétion',
+      completionRate: 'Taux d\'engagement',
       newStudentsThisMonth: 'Nouveaux ce mois',
       
       // Sections
@@ -89,7 +89,7 @@ export default function SchoolDashboardClient({
       activeMissions: 'Active Missions',
       totalRegistrations: 'Registrations',
       completedMissions: 'Completed Missions',
-      completionRate: 'Completion Rate',
+      completionRate: 'Engagement Rate',
       newStudentsThisMonth: 'New This Month',
       
       recentStudents: 'Recent Registrations',
@@ -121,10 +121,10 @@ export default function SchoolDashboardClient({
 
     if (diffInDays === 0) return locale === 'fr' ? 'Aujourd\'hui' : 'Today';
     if (diffInDays === 1) return locale === 'fr' ? 'Hier' : 'Yesterday';
-    if (diffInDays < 7) return locale === 'fr' ? `Il y a ${diffInDays}j` : `${diffInDays}d ago`;
+    if (diffInDays < 7) return locale === 'fr' ? `Il y a ${-diffInDays}j` : `${-diffInDays}d ago`;
     if (diffInDays < 30) {
       const weeks = Math.floor(diffInDays / 7);
-      return locale === 'fr' ? `Il y a ${weeks}sem` : `${weeks}w ago`;
+      return locale === 'fr' ? `Il y a ${-weeks}sem` : `${-weeks}w ago`;
     }
     return formatDate(dateString);
   };
@@ -204,23 +204,11 @@ export default function SchoolDashboardClient({
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-[#FEEAA1] hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">{text.activeMissions}</p>
-              <p className="text-3xl font-bold text-gray-900">{stats.activeMissions}</p>
-            </div>
-            <div className="w-12 h-12 bg-[#ECF8F6] rounded-xl flex items-center justify-center">
-              <Target className="w-6 h-6 text-[#D6955B]" />
-            </div>
-          </div>
-        </div>
-
         <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-[#18534F] hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">{text.totalRegistrations}</p>
-              <p className="text-3xl font-bold text-gray-900">{stats.totalRegistrations}</p>
+              <p className="text-sm font-medium text-gray-600">Missions à venir</p>
+              <p className="text-3xl font-bold text-gray-900">{stats.upcomingMissions}</p>
             </div>
             <div className="w-12 h-12 bg-[#ECF8F6] rounded-xl flex items-center justify-center">
               <Award className="w-6 h-6 text-[#18534F]" />
@@ -231,8 +219,8 @@ export default function SchoolDashboardClient({
         <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-[#226D68] hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">{text.completionRate}</p>
-              <p className="text-3xl font-bold text-gray-900">{stats.completionRate}%</p>
+              <p className="text-sm font-medium text-gray-600">Total inscriptions</p>
+              <p className="text-3xl font-bold text-gray-900">{stats.totalRegistrations}</p>
             </div>
             <div className="w-12 h-12 bg-[#ECF8F6] rounded-xl flex items-center justify-center">
               <TrendingUp className="w-6 h-6 text-[#226D68]" />
@@ -241,17 +229,28 @@ export default function SchoolDashboardClient({
         </div>
 
         {/* Deux cartes supplémentaires pour faire 8 */}
-        <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-[#D6955B] hover:shadow-md transition-shadow col-span-2">
+        <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-[#D6955B] hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Moyenne heures/étudiant</p>
-              <p className="text-3xl font-bold text-gray-900">
-                {stats.activeStudents > 0 ? (stats.totalHours / stats.activeStudents).toFixed(1) : '0'}h
-              </p>
+              <p className="text-sm font-medium text-gray-600">Taux d'engagement</p>
+              <p className="text-3xl font-bold text-gray-900">{stats.completionRate}%</p>
               <p className="text-xs text-gray-500 mt-1">Sur la période sélectionnée</p>
             </div>
             <div className="w-12 h-12 bg-[#ECF8F6] rounded-xl flex items-center justify-center">
               <TrendingUp className="w-6 h-6 text-[#D6955B]" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-[#FEEAA1] hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Nouveaux étudiants ce mois</p>
+              <p className="text-3xl font-bold text-gray-900">{stats.newStudentsThisMonth}</p>
+              <p className="text-xs text-gray-500 mt-1">Depuis le 1er du mois</p>
+            </div>
+            <div className="w-12 h-12 bg-[#ECF8F6] rounded-xl flex items-center justify-center">
+              <Users className="w-6 h-6 text-[#D6955B]" />
             </div>
           </div>
         </div>

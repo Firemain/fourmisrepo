@@ -39,6 +39,17 @@ export async function updateSession(request: NextRequest) {
   console.log('[MIDDLEWARE] Request path:', request.nextUrl.pathname)
   console.log('[MIDDLEWARE] User authenticated:', user?.id, user?.email)
 
+  // Redirect authenticated users away from login page
+  if (user && request.nextUrl.pathname === '/login') {
+    console.log('[MIDDLEWARE] 🔄 Authenticated user redirected from /login to /dashboard')
+    const url = new URL('/dashboard', request.url)
+    const response = NextResponse.redirect(url)
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      response.cookies.set(cookie.name, cookie.value)
+    })
+    return response
+  }
+
   // If user is authenticated and accessing a dashboard, check role-based redirection
   if (user && (request.nextUrl.pathname.startsWith('/dashboard'))) {
     const { data: userProfile } = await supabase

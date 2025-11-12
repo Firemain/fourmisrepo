@@ -160,7 +160,28 @@ export async function registerForMission(missionId: string, schoolMemberId: stri
   }
 
   revalidatePath('/dashboard/missions');
+  revalidatePath(`/dashboard/missions/${missionId}`);
   return { success: true, data, error: null };
+}
+
+/**
+ * Unregister student from a mission
+ */
+export async function unregisterFromMission(registrationId: string) {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from('mission_registrations')
+    .delete()
+    .eq('id', registrationId);
+
+  if (error) {
+    console.error('Error unregistering from mission:', error);
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath('/dashboard/missions');
+  return { success: true, error: null };
 }
 
 /**
