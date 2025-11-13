@@ -51,31 +51,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. Créer les invitations
-    const invitations = students.map((student: any) => ({
-      school_id: schoolId,
-      email: student.email.toLowerCase().trim(),
-      first_name: student.firstName?.trim() || null,
-      last_name: student.lastName?.trim() || null,
-      token: crypto.randomUUID(),
-      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 jours
-      created_by: userProfile.id,
-    }));
-
-    const { data: createdInvitations, error: invitationError } = await supabase
-      .from('student_invitations')
-      .insert(invitations)
-      .select();
-
-    if (invitationError) {
-      console.error('Error creating invitations:', invitationError);
-      return NextResponse.json(
-        { error: 'Erreur lors de la création des invitations', details: invitationError },
-        { status: 500 }
-      );
-    }
-
-    // 5. Récupérer le nom de l'école pour les emails
+    // 4. Récupérer le nom de l'école pour les emails
     const { data: school } = await supabase
       .from('schools')
       .select('name')
@@ -84,42 +60,89 @@ export async function POST(request: Request) {
 
     const schoolName = school?.name || 'Votre école';
 
-    // 6. Envoyer les emails d'invitation
-    const emailResults = await Promise.allSettled(
-      createdInvitations.map(async (invitation: any) => {
-        const invitationLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/invitation/${invitation.token}`;
+    // 5. Traiter chaque invitation individuellement (créer + envoyer email)
+    const results = await Promise.allSettled(
+      students.map(async (student: any) => {
+        // 5.1 Créer l'invitation
+        const invitationData = {
+          school_id: schoolId,
+          email: student.email.toLowerCase().trim(),
+          first_name: student.firstName?.trim() || null,
+          last_name: student.lastName?.trim() || null,
+          token: crypto.randomUUID(),
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          created_by: userProfile.id,
+        };
 
-        return await resend.emails.send({
-          from: process.env.RESEND_FROM_EMAIL || 'Fourmis <contact@fourmis.app>',
-          to: invitation.email,
-          subject: `${schoolName} vous invite à rejoindre Fourmis`,
-          react: StudentInvitationEmail({
-            firstName: invitation.first_name || '',
-            schoolName: schoolName,
-            invitationLink: invitationLink,
-          }),
-        });
+        const { data: invitation, error: invitationError } = await supabase
+          .from('student_invitations')
+          .insert(invitationData)
+          .select()
+          .single();
+
+        if (invitationError) {
+          throw new Error(`Erreur création invitation pour ${student.email}: ${invitationError.message}`);
+        }
+
+        // 5.2 Envoyer l'email
+        try {
+          const invitationLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/invitation/${invitation.token}`;
+
+          const emailResult = await resend.emails.send({
+            from: process.env.RESEND_FROM_EMAIL || 'Fourmis <contact@fourmis.app>',
+            to: invitation.email,
+            subject: `${schoolName} vous invite à rejoindre Fourmis`,
+            react: StudentInvitationEmail({
+              firstName: invitation.first_name || '',
+              schoolName: schoolName,
+              invitationLink: invitationLink,
+            }),
+          });
+
+          return {
+            success: true,
+            invitation,
+            emailId: emailResult.data?.id,
+          };
+        } catch (emailError) {
+          // L'email a échoué, supprimer l'invitation créée
+          await supabase
+            .from('student_invitations')
+            .delete()
+            .eq('id', invitation.id);
+
+          throw new Error(`Erreur envoi email pour ${student.email}: ${emailError instanceof Error ? emailError.message : 'Erreur inconnue'}`);
+        }
       })
     );
 
-    // Compter les emails envoyés avec succès
-    const successfulEmails = emailResults.filter((result) => result.status === 'fulfilled').length;
-    const failedEmails = emailResults.filter((result) => result.status === 'rejected');
+    // 6. Analyser les résultats
+    const successful = results.filter((r) => r.status === 'fulfilled');
+    const failed = results.filter((r) => r.status === 'rejected');
 
-    if (failedEmails.length > 0) {
-      console.error('Some emails failed to send:', failedEmails);
+    if (failed.length > 0) {
+      console.error('Échecs lors de l\'envoi des invitations:', failed.map((f) => f.status === 'rejected' ? f.reason : null));
     }
 
     return NextResponse.json({
       success: true,
-      sent: createdInvitations.length,
-      emailsSent: successfulEmails,
-      emailsFailed: failedEmails.length,
-      invitations: createdInvitations.map((inv: any) => ({
-        id: inv.id,
-        email: inv.email,
-        token: inv.token,
-        expiresAt: inv.expires_at,
+      total: students.length,
+      sent: successful.length,
+      failed: failed.length,
+      invitations: successful.map((r) => {
+        if (r.status === 'fulfilled') {
+          const inv = r.value.invitation;
+          return {
+            id: inv.id,
+            email: inv.email,
+            token: inv.token,
+            expiresAt: inv.expires_at,
+          };
+        }
+        return null;
+      }).filter(Boolean),
+      errors: failed.map((f) => ({
+        message: f.status === 'rejected' ? f.reason.message : 'Erreur inconnue',
       })),
     });
   } catch (error) {

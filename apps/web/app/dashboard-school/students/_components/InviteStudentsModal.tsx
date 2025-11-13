@@ -135,20 +135,33 @@ export default function InviteStudentsModal({ open, onClose, schoolId }: InviteS
 
       const result = await response.json();
 
-      showToast(
-        `${result.sent} invitation(s) envoyée(s) avec succès !`,
-        'success',
-        5000
-      );
+      // Afficher les résultats
+      if (result.failed > 0) {
+        // Certaines invitations ont échoué
+        showToast(
+          `${result.sent} invitation(s) envoyée(s) avec succès. ${result.failed} ont échoué (vérifiez les adresses email et votre configuration Resend).`,
+          'error',
+          8000
+        );
+      } else {
+        // Toutes les invitations ont réussi
+        showToast(
+          `${result.sent} invitation(s) envoyée(s) avec succès !`,
+          'success',
+          5000
+        );
+      }
 
-      // Réinitialiser et fermer
-      setEmailEntries([{ id: '1', email: '', firstName: '', lastName: '' }]);
-      setCsvContent('');
-      setCsvFile(null);
-      onClose();
+      // Réinitialiser et fermer seulement si tout a réussi
+      if (result.failed === 0) {
+        setEmailEntries([{ id: '1', email: '', firstName: '', lastName: '' }]);
+        setCsvContent('');
+        setCsvFile(null);
+        onClose();
 
-      // Recharger la page pour afficher les nouvelles invitations
-      window.location.reload();
+        // Recharger la page pour afficher les nouvelles invitations
+        window.location.reload();
+      }
     } catch (error: any) {
       console.error('Error sending invitations:', error);
       showToast(error.message || 'Erreur lors de l\'envoi des invitations', 'error');
