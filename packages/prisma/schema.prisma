@@ -75,6 +75,15 @@ enum RegistrationStatus {
   COMPLETED
 }
 
+enum ODDCategory {
+  ENVIRONMENT
+  SOCIAL
+  EDUCATION
+  HEALTH
+  CULTURE
+  SPORT
+}
+
 // ============================================
 // MODELS
 // ============================================
@@ -208,6 +217,7 @@ model SchoolMember {
   academicLevelId  String       @map("academic_level_id")
   contactId        String       @map("contact_id")
   email            String
+  calendarUrl      String?      @map("calendar_url") // URL du calendrier dynamique (iCal, Google Calendar, etc.)
   userProfileId    String?      @unique @map("user_profile_id")
   createdAt        DateTime     @default(now()) @map("created_at")
   updatedAt        DateTime     @updatedAt @map("updated_at")
@@ -286,6 +296,7 @@ model Mission {
   contact              Contact?              @relation(fields: [contactId], references: [id], onDelete: SetNull)
   registrations        MissionRegistration[]
   tags                 MissionTags[]
+  odds                 MissionODD[]
 
   @@map("missions")
 }
@@ -362,11 +373,33 @@ model AssociationTags {
 // ============================================
 
 model ODD {
-  id          String   @id @default(uuid())
+  id          String      @id @default(uuid())
+  number      Int         @unique // Numéro de l'ODD (1-17)
   name        String
-  description String?  @db.Text
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  description String?     @db.Text
+  category    ODDCategory // Catégorie générale de l'ODD
+  color       String?     // Couleur officielle de l'ODD (hex)
+  icon        String?     // Emoji ou icône représentative
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  missions    MissionODD[]
 
   @@map("odds")
 }
+
+model MissionODD {
+  id        String   @id @default(uuid())
+  missionId String   @map("mission_id")
+  oddId     String   @map("odd_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  mission Mission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  odd     ODD     @relation(fields: [oddId], references: [id], onDelete: Cascade)
+
+  @@unique([missionId, oddId])
+  @@map("mission_odds")
+}
+
