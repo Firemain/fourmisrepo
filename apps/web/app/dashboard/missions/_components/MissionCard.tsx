@@ -3,6 +3,9 @@
 import { Calendar, Clock, Users, MapPin, Heart } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { getMissionCategory } from '@/lib/odd-categories';
+import { useLocale } from '@/lib/i18n/LocaleContext';
+import { useRouter } from 'next/navigation';
 
 interface Mission {
   id: string;
@@ -21,35 +24,43 @@ interface Mission {
 
 interface MissionCardProps {
   mission: Mission;
-  onDetailsClick: (mission: Mission) => void;
+  onDetailsClick?: (mission: Mission) => void; // Rendre optionnel
 }
 
 export default function MissionCard({ mission, onDetailsClick }: MissionCardProps) {
-  const difficultyColors = {
-    Facile: 'bg-green-100 text-green-800 border border-green-200',
-    Modéré: 'bg-[#FEEAA1] text-[#D6955B] border border-[#D6955B]',
-    Avancé: 'bg-orange-100 text-orange-800 border border-orange-200'
-  };
+  const { locale } = useLocale();
+  const router = useRouter();
+  const categoryInfo = getMissionCategory(mission.odd);
 
   const participationPercentage = (mission.participants / mission.maxParticipants) * 100;
 
+  const handleDetailsClick = () => {
+    // Si une fonction de callback est fournie, l'appeler
+    if (onDetailsClick) {
+      onDetailsClick(mission);
+    }
+    // Rediriger vers la page de détails
+    router.push(`/dashboard/missions/${mission.id}`);
+  };
+
   return (
     <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 group border border-gray-100">
-      {/* Header avec ODDs et Favoris */}
+      {/* Header avec Badge de Catégorie et Favoris */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex flex-wrap gap-2">
-          {mission.odd.length > 0 ? (
-            mission.odd.map((odd) => (
-              <Badge
-                key={odd}
-                className="bg-[#ECF8F6] text-[#18534F] hover:bg-[#18534F] hover:text-white border-0 transition-colors"
-              >
-                ODD {odd}
-              </Badge>
-            ))
+          {categoryInfo ? (
+            <Badge
+              className="border-0 text-white font-semibold transition-all hover:scale-105"
+              style={{ 
+                backgroundColor: categoryInfo.color,
+                boxShadow: `0 2px 8px ${categoryInfo.color}40`
+              }}
+            >
+              {locale === 'fr' ? categoryInfo.nameFr : categoryInfo.nameEn}
+            </Badge>
           ) : (
-            <Badge className="bg-[#ECF8F6] text-[#18534F] border-0">
-              Mission générale
+            <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-200 border-0 transition-colors">
+              {locale === 'fr' ? 'Générale' : 'General'}
             </Badge>
           )}
         </div>
@@ -104,7 +115,7 @@ export default function MissionCard({ mission, onDetailsClick }: MissionCardProp
         </div>
         <div className="w-full bg-[#ECF8F6] rounded-full h-2">
           <div
-            className="bg-gradient-to-r from-[#D6955B] to-[#FEEAA1] h-2 rounded-full transition-all duration-500"
+            className="bg-linear-to-r from-[#D6955B] to-[#FEEAA1] h-2 rounded-full transition-all duration-500"
             style={{ width: `${participationPercentage}%` }}
           />
         </div>
@@ -119,7 +130,7 @@ export default function MissionCard({ mission, onDetailsClick }: MissionCardProp
           </div>
         </div>
         <Button
-          onClick={() => onDetailsClick(mission)}
+          onClick={handleDetailsClick}
           className="bg-[#18534F] text-white px-5 py-2 rounded-full hover:bg-[#226D68] transition-all duration-300 transform hover:scale-105"
         >
           Détails

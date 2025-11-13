@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { useLocale } from '@/lib/i18n/LocaleContext';
+import { getMissionCategory } from '@/lib/odd-categories';
 import MissionFilters from './MissionFilters';
 import MissionCard from './MissionCard';
 import RecommendedMissions from './RecommendedMission';
@@ -112,8 +113,18 @@ export default function MissionsClient({ missions, user }: MissionsClientProps) 
         mission.association.toLowerCase().includes(searchValue.toLowerCase()) ||
         mission.description.toLowerCase().includes(searchValue.toLowerCase());
       
-      // TODO: Implémenter les filtres par catégorie
-      const matchesFilter = activeFilter === 'Tous' || true;
+      // Filtrage par catégorie ODD
+      let matchesFilter = true;
+      if (activeFilter !== 'Tous') {
+        const categoryInfo = getMissionCategory(mission.odd);
+        if (categoryInfo) {
+          // Comparer avec la catégorie sélectionnée (FR)
+          matchesFilter = categoryInfo.nameFr === activeFilter;
+        } else {
+          // Si pas de catégorie ODD, ne correspond à aucun filtre spécifique
+          matchesFilter = false;
+        }
+      }
       
       return matchesSearch && matchesFilter;
     });
@@ -158,7 +169,7 @@ export default function MissionsClient({ missions, user }: MissionsClientProps) 
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-[#ECF8F6]">
+    <div className="min-h-screen bg-linear-to-b from-white to-[#ECF8F6]">
       {/* Header */}
       <div className="bg-white border-b border-gray-100">
         <div className="max-w-7xl mx-auto p-8">
@@ -180,9 +191,9 @@ export default function MissionsClient({ missions, user }: MissionsClientProps) 
             />
           )
         ) : (
-          <div className="bg-gradient-to-br from-[#ECF8F6] to-white border-2 border-[#18534F] rounded-2xl p-8 shadow-lg">
+          <div className="bg-linear-to-br from-[#ECF8F6] to-white border-2 border-[#18534F] rounded-2xl p-8 shadow-lg">
             <div className="flex items-start gap-6">
-              <div className="flex-shrink-0">
+              <div className="shrink-0">
                 <div className="w-16 h-16 bg-[#FEEAA1] rounded-full flex items-center justify-center">
                   <Sparkles className="text-[#18534F]" size={32} />
                 </div>

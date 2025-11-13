@@ -2,6 +2,7 @@
 
 import { MapPin, Users, Briefcase, ExternalLink, Mail } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { useRouter } from 'next/navigation';
 
 interface Association {
   id: string;
@@ -31,6 +32,8 @@ interface AssociationCardProps {
 }
 
 export default function AssociationCard({ association, locale }: AssociationCardProps) {
+  const router = useRouter();
+
   const t = {
     fr: {
       missions: 'missions',
@@ -54,8 +57,25 @@ export default function AssociationCard({ association, locale }: AssociationCard
 
   const text = t[locale];
 
+  const handleCardClick = () => {
+    router.push(`/dashboard/associations/${association.id}`);
+  };
+
+  const handleExternalLinkClick = (e: React.MouseEvent, url: string) => {
+    e.stopPropagation();
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleEmailClick = (e: React.MouseEvent, email: string) => {
+    e.stopPropagation();
+    window.location.href = `mailto:${email}`;
+  };
+
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg transition-all duration-300 group">
+    <div
+      onClick={handleCardClick}
+      className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg transition-all duration-300 group cursor-pointer"
+    >
       {/* Header avec logo */}
       <div className="relative h-32 bg-gradient-to-br from-[#18534F] to-[#226D68] flex items-center justify-center overflow-hidden">
         {/* Décorations */}
@@ -145,24 +165,22 @@ export default function AssociationCard({ association, locale }: AssociationCard
         {/* Actions */}
         <div className="space-y-2">
           {association.siteUrl && (
-            <a
-              href={association.siteUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={(e) => handleExternalLinkClick(e, association.siteUrl!)}
               className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-[#18534F] text-white rounded-lg hover:bg-[#226D68] transition-colors text-sm font-medium"
             >
               <ExternalLink size={16} />
               {text.visitSite}
-            </a>
+            </button>
           )}
           {association.email && (
-            <a
-              href={`mailto:${association.email}`}
+            <button
+              onClick={(e) => handleEmailClick(e, association.email!)}
               className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-[#ECF8F6] text-[#18534F] rounded-lg hover:bg-[#18534F] hover:text-white transition-colors text-sm font-medium"
             >
               <Mail size={16} />
               {text.sendEmail}
-            </a>
+            </button>
           )}
         </div>
       </div>

@@ -37,7 +37,7 @@ export default async function MissionsPage() {
     );
   }
 
-  // 4. Récupérer TOUTES les missions publiées
+  // 4. Récupérer TOUTES les missions publiées avec leurs ODDs
   const { data: allMissions, error: missionsError } = await supabase
     .from('missions')
     .select(`
@@ -60,6 +60,16 @@ export default async function MissionsPage() {
         street,
         city,
         postal_code
+      ),
+      mission_odds (
+        odd:odds (
+          id,
+          number,
+          name,
+          category,
+          color,
+          icon
+        )
       )
     `)
     .in('status', ['PUBLISHED', 'ACTIVE']) // Accepter PUBLISHED et ACTIVE
@@ -90,12 +100,13 @@ export default async function MissionsPage() {
     location: mission.contact 
       ? `${mission.contact.street}, ${mission.contact.city}` 
       : 'À définir',
-    status: mission.status, // ✅ Ajouté pour MissionCard
+    status: mission.status,
     association: mission.associations?.name || 'Association',
     associationId: mission.association_id,
+    // Récupération des ODDs depuis la table de jonction
+    odd: mission.mission_odds?.map((mo: any) => mo.odd?.number).filter(Boolean) || [],
     // TODO: Ajouter les vraies données quand les tables seront prêtes
     participants: 0, // À récupérer depuis mission_registrations
-    odd: [], // À récupérer depuis la table de tags/ODDs
     difficulty: 'Modéré' as const, // À récupérer depuis la mission ou calculer
     skills: [] // À récupérer depuis la table de compétences
   })) || [];
