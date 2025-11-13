@@ -6,9 +6,10 @@ import InvitationAcceptForm from './_components/InvitationAcceptForm';
 export default async function InvitationPage({
   params,
 }: {
-  params: { token: string };
+  params: Promise<{ token: string }>;
 }) {
-  const cookieStore = cookies();
+  const { token } = await params;
+  const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -32,6 +33,9 @@ export default async function InvitationPage({
   }
 
   // Valider le token d'invitation
+  console.log('[INVITATION] Token reçu:', token);
+  console.log('[INVITATION] Date actuelle:', new Date().toISOString());
+  
   const { data: invitation, error } = await supabase
     .from('student_invitations')
     .select(
@@ -39,15 +43,16 @@ export default async function InvitationPage({
       *,
       school:schools (
         id,
-        name,
-        logo_url
+        name
       )
     `
     )
-    .eq('token', params.token)
+    .eq('token', token)
     .is('used_at', null)
     .gt('expires_at', new Date().toISOString())
     .single();
+
+  console.log('[INVITATION] Résultat requête:', { invitation, error });
 
   if (error || !invitation) {
     return (
@@ -95,7 +100,6 @@ export default async function InvitationPage({
           lastName: invitation.last_name || '',
           token: invitation.token,
           schoolName: invitation.school?.name || '',
-          schoolLogo: invitation.school?.logo_url || '',
         }}
       />
     </div>

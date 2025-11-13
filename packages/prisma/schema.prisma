@@ -136,10 +136,10 @@ model StudentPreferences {
 
 model Contact {
   id               String   @id @default(uuid())
-  country          String
-  city             String
-  postalCode       String   @map("postal_code")
-  street           String
+  country          String?
+  city             String?
+  postalCode       String?  @map("postal_code")
+  street           String?
   apartmentNumber  String?  @map("apartment_number")
   phoneNumber      String?  @map("phone_number")
   createdAt        DateTime @default(now()) @map("created_at")

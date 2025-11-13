@@ -14,7 +14,6 @@ interface InvitationData {
   lastName: string;
   token: string;
   schoolName: string;
-  schoolLogo: string;
 }
 
 interface InvitationAcceptFormProps {
@@ -88,11 +87,11 @@ export default function InvitationAcceptForm({
         throw new Error(data.error || 'Une erreur est survenue');
       }
 
-      showToast('Compte créé avec succès ! Redirection...', 'success');
+      showToast('Compte créé avec succès ! Redirection vers la connexion...', 'success');
 
-      // Rediriger vers le dashboard après 2 secondes
+      // Rediriger vers le login après 2 secondes
       setTimeout(() => {
-        router.push('/dashboard');
+        router.push('/login?message=account_created');
       }, 2000);
     } catch (error) {
       console.error('Error accepting invitation:', error);
@@ -113,15 +112,6 @@ export default function InvitationAcceptForm({
       <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8">
         {/* En-tête avec logo de l'école */}
         <div className="text-center mb-8">
-          {invitation.schoolLogo && (
-            <div className="w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden bg-gray-100">
-              <img
-                src={invitation.schoolLogo}
-                alt={invitation.schoolName}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          )}
           <div className="flex items-center justify-center gap-2 mb-2">
             <GraduationCap className="w-6 h-6 text-[#18534F]" />
             <h1 className="text-2xl font-bold text-gray-900">Bienvenue !</h1>
