@@ -90,7 +90,7 @@ export async function POST(request: Request) {
         const invitationLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/invitation/${invitation.token}`;
 
         return await resend.emails.send({
-          from: process.env.RESEND_FROM_EMAIL || 'Fourmis <onboarding@fourmis.fr>',
+          from: process.env.RESEND_FROM_EMAIL || 'Fourmis <contact@fourmis.app>',
           to: invitation.email,
           subject: `${schoolName} vous invite à rejoindre Fourmis`,
           react: StudentInvitationEmail({

@@ -1,4 +1,14 @@
 import * as React from 'react';
+import {
+  Html,
+  Head,
+  Body,
+  Container,
+  Section,
+  Text,
+  Link,
+  Button,
+} from '@react-email/components';
 
 interface StudentInvitationEmailProps {
   firstName: string;
@@ -12,11 +22,9 @@ export function StudentInvitationEmail({
   invitationLink,
 }: StudentInvitationEmailProps) {
   return (
-    <html>
-      <head>
-        <meta charSet="utf-8" />
-      </head>
-      <body
+    <Html>
+      <Head />
+      <Body
         style={{
           backgroundColor: '#ECF8F6',
           fontFamily:
@@ -24,7 +32,7 @@ export function StudentInvitationEmail({
           padding: '40px 20px',
         }}
       >
-        <div
+        <Container
           style={{
             maxWidth: '600px',
             margin: '0 auto',
@@ -35,14 +43,14 @@ export function StudentInvitationEmail({
           }}
         >
           {/* En-tête avec couleur primaire */}
-          <div
+          <Section
             style={{
               backgroundColor: '#18534F',
               padding: '40px 30px',
-              textAlign: 'center',
+              textAlign: 'center' as const,
             }}
           >
-            <h1
+            <Text
               style={{
                 color: '#ffffff',
                 fontSize: '28px',
@@ -51,8 +59,8 @@ export function StudentInvitationEmail({
               }}
             >
               🎓 Bienvenue sur Fourmis !
-            </h1>
-            <p
+            </Text>
+            <Text
               style={{
                 color: '#FEEAA1',
                 fontSize: '16px',
@@ -60,12 +68,12 @@ export function StudentInvitationEmail({
               }}
             >
               Valorisez votre engagement étudiant
-            </p>
-          </div>
+            </Text>
+          </Section>
 
           {/* Contenu principal */}
-          <div style={{ padding: '40px 30px' }}>
-            <p
+          <Section style={{ padding: '40px 30px' }}>
+            <Text
               style={{
                 fontSize: '16px',
                 color: '#333333',
@@ -74,9 +82,9 @@ export function StudentInvitationEmail({
               }}
             >
               Bonjour {firstName || 'étudiant(e)'} 👋
-            </p>
+            </Text>
 
-            <p
+            <Text
               style={{
                 fontSize: '16px',
                 color: '#333333',
@@ -86,11 +94,11 @@ export function StudentInvitationEmail({
             >
               <strong style={{ color: '#18534F' }}>{schoolName}</strong> vous
               invite à rejoindre <strong>Fourmis</strong>, la plateforme qui
-              valorise l'engagement étudiant et vous connecte avec des
+              valorise l&apos;engagement étudiant et vous connecte avec des
               associations locales.
-            </p>
+            </Text>
 
-            <div
+            <Section
               style={{
                 backgroundColor: '#ECF8F6',
                 borderLeft: '4px solid #18534F',
@@ -99,7 +107,7 @@ export function StudentInvitationEmail({
                 borderRadius: '4px',
               }}
             >
-              <p
+              <Text
                 style={{
                   fontSize: '14px',
                   color: '#226D68',
@@ -115,15 +123,14 @@ export function StudentInvitationEmail({
                 <br />
                 • Obtenir des attestations officielles
                 <br />• Contribuer aux Objectifs de Développement Durable
-              </p>
-            </div>
+              </Text>
+            </Section>
 
             {/* Bouton CTA */}
-            <div style={{ textAlign: 'center', margin: '40px 0' }}>
-              <a
+            <Section style={{ textAlign: 'center' as const, margin: '40px 0' }}>
+              <Button
                 href={invitationLink}
                 style={{
-                  display: 'inline-block',
                   backgroundColor: '#18534F',
                   color: '#ffffff',
                   padding: '16px 40px',
@@ -131,32 +138,33 @@ export function StudentInvitationEmail({
                   textDecoration: 'none',
                   fontSize: '16px',
                   fontWeight: 'bold',
-                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                  display: 'inline-block',
                 }}
               >
                 Créer mon compte
-              </a>
-            </div>
+              </Button>
+            </Section>
 
-            <p
+            <Text
               style={{
                 fontSize: '14px',
                 color: '#666666',
-                textAlign: 'center',
+                textAlign: 'center' as const,
                 marginTop: '30px',
               }}
             >
-              Ce lien d'invitation est valable pendant <strong>7 jours</strong>.
-            </p>
+              Ce lien d&apos;invitation est valable pendant{' '}
+              <strong>7 jours</strong>.
+            </Text>
 
-            <div
+            <Section
               style={{
                 marginTop: '30px',
                 paddingTop: '30px',
                 borderTop: '1px solid #E5E7EB',
               }}
             >
-              <p
+              <Text
                 style={{
                   fontSize: '13px',
                   color: '#999999',
@@ -166,29 +174,29 @@ export function StudentInvitationEmail({
                 Si le bouton ne fonctionne pas, copiez et collez ce lien dans
                 votre navigateur :
                 <br />
-                <a
+                <Link
                   href={invitationLink}
                   style={{
                     color: '#18534F',
-                    wordBreak: 'break-all',
+                    wordBreak: 'break-all' as const,
                   }}
                 >
                   {invitationLink}
-                </a>
-              </p>
-            </div>
-          </div>
+                </Link>
+              </Text>
+            </Section>
+          </Section>
 
           {/* Pied de page */}
-          <div
+          <Section
             style={{
               backgroundColor: '#F9FAFB',
               padding: '30px',
-              textAlign: 'center',
+              textAlign: 'center' as const,
               borderTop: '1px solid #E5E7EB',
             }}
           >
-            <p
+            <Text
               style={{
                 fontSize: '14px',
                 color: '#666666',
@@ -196,26 +204,26 @@ export function StudentInvitationEmail({
               }}
             >
               Vous avez des questions ?{' '}
-              <a
+              <Link
                 href="mailto:support@fourmis.fr"
                 style={{ color: '#18534F', textDecoration: 'none' }}
               >
                 Contactez-nous
-              </a>
-            </p>
-            <p
+              </Link>
+            </Text>
+            <Text
               style={{
                 fontSize: '12px',
                 color: '#999999',
                 margin: 0,
               }}
             >
-              © 2025 Fourmis - Plateforme de valorisation de l'engagement
+              © 2025 Fourmis - Plateforme de valorisation de l&apos;engagement
               étudiant
-            </p>
-          </div>
-        </div>
-      </body>
-    </html>
+            </Text>
+          </Section>
+        </Container>
+      </Body>
+    </Html>
   );
 }
