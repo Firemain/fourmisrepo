@@ -104,6 +104,7 @@ model UserProfile {
   associationMember AssociationMember?
   schoolAdmin       SchoolAdmin?
   studentPreferences StudentPreferences?
+  createdInvitations StudentInvitation[]
 
   @@map("user_profiles")
 }
@@ -169,6 +170,7 @@ model School {
   admins        SchoolAdmin[]
   members       SchoolMember[]
   academicLevels RefAcademicLevel[]
+  invitations   StudentInvitation[]
 
   @@map("schools")
 }
@@ -191,6 +193,25 @@ model SchoolAdmin {
   userProfile UserProfile? @relation(fields: [userProfileId], references: [id], onDelete: SetNull)
 
   @@map("school_admins")
+}
+
+model StudentInvitation {
+  id         String    @id @default(uuid())
+  schoolId   String    @map("school_id")
+  email      String
+  firstName  String?   @map("first_name")
+  lastName   String?   @map("last_name")
+  token      String    @unique @default(uuid())
+  expiresAt  DateTime  @map("expires_at")
+  usedAt     DateTime? @map("used_at")
+  createdBy  String?   @map("created_by")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  school      School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  creator     UserProfile? @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@map("student_invitations")
 }
 
 model RefAcademicLevel {

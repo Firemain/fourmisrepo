@@ -281,5 +281,5 @@ export default async function StudentsPage(props: {
     },
   };
 
-  return <StudentsListClient data={data} />;
+  return <StudentsListClient data={data} schoolId={schoolAdmin.school_id} />;
 }

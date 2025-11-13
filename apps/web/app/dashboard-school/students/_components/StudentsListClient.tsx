@@ -1,6 +1,7 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useLocale } from '@/lib/i18n/LocaleContext';
 import { 
   Search,
@@ -12,10 +13,12 @@ import {
   Trash2,
   MessageSquare,
   UserCheck,
+  UserPlus,
   GraduationCap,
   Award,
   Clock
 } from 'lucide-react';
+import InviteStudentsModal from './InviteStudentsModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -76,9 +79,11 @@ type StudentData = {
   };
 };
 
-export default function StudentsListClient({ data }: { data: StudentData }) {
+export default function StudentsListClient({ data, schoolId }: { data: StudentData; schoolId: string }) {
   const { locale } = useLocale();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
   const t = {
     fr: {
@@ -98,7 +103,9 @@ export default function StudentsListClient({ data }: { data: StudentData }) {
       active: 'Actif',
       inactive: 'Inactif',
       
+      inviteStudents: 'Inviter des étudiants',
       exportCSV: 'Exporter CSV',
+      sendEmail: 'Envoyer un email',
       sendEmail: 'Envoyer email groupé',
       
       student: 'Étudiant',
@@ -339,11 +346,19 @@ export default function StudentsListClient({ data }: { data: StudentData }) {
             </SelectContent>
           </Select>
 
-          <Button variant="outline" size="icon">
+          <Button
+            onClick={() => setIsInviteModalOpen(true)}
+            className="bg-[#18534F] hover:bg-[#226D68] text-white"
+          >
+            <UserPlus className="w-4 h-4 mr-2" />
+            {text.inviteStudents}
+          </Button>
+
+          <Button variant="outline" title={text.exportCSV}>
             <Download className="w-4 h-4" />
           </Button>
 
-          <Button variant="outline" size="icon">
+          <Button variant="outline" title={text.sendEmail}>
             <Mail className="w-4 h-4" />
           </Button>
         </div>
@@ -485,6 +500,13 @@ export default function StudentsListClient({ data }: { data: StudentData }) {
           </div>
         </div>
       </div>
+
+      {/* Modal d'invitation */}
+      <InviteStudentsModal
+        open={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        schoolId={schoolId}
+      />
     </div>
   );
 }
