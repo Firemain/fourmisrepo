@@ -22,19 +22,19 @@ export default async function MissionDetailPage({
     redirect('/auth/login');
   }
 
-  // 2. Récupérer les données utilisateur
-  const { data: userProfile, error: userError } = await supabase
-    .from('user_profiles')
-    .select('*')
-    .eq('user_id', user.id)
-    .single();
+// 2. Récupérer les données utilisateur
+const { data: userProfile, error: userError } = await supabase
+  .from('user_profiles')
+  .select('*')
+  .eq('user_id', user.id)
+  .single();
 
-  console.log('🔍 [MISSION DETAIL] User profile:', userProfile?.id, userError);
+console.log('🔍 [MISSION DETAIL] User profile:', userProfile?.id, userError);
 
-  if (!userProfile) {
-    console.log('❌ [MISSION DETAIL] No user profile, redirecting to login');
-    redirect('/auth/login');
-  }
+if (!userProfile) {
+  console.log('❌ [MISSION DETAIL] No user profile, redirecting to login');
+  redirect('/auth/login');
+}
 
   // 3. Récupérer school_member
   const { data: schoolMember, error: schoolMemberError } = await supabase
