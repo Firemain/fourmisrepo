@@ -18,6 +18,7 @@ RESEND_API_KEY=re_xxx...
 RESEND_FROM_EMAIL=Fourmis <onboarding@fourmis.fr>
 ```
 
+
 ### Où trouver SUPABASE_SERVICE_ROLE_KEY ?
 
 1. Va sur ton projet Supabase
