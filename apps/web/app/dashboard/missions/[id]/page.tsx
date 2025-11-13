@@ -81,6 +81,17 @@ if (!userProfile) {
           id,
           name
         )
+      ),
+      mission_odds (
+        odd:odds (
+          id,
+          number,
+          name,
+          description,
+          category,
+          color,
+          icon
+        )
       )
     `)
     .eq('id', id)
@@ -141,6 +152,15 @@ if (!userProfile) {
     tags: mission.mission_tags_relation?.map((mt: any) => ({
       id: mt.tag?.id || '',
       name: mt.tag?.name || '',
+    })) || [],
+    odds: (mission as any).mission_odds?.map((mo: any) => ({
+      id: mo.odd?.id || '',
+      number: mo.odd?.number || 0,
+      name: mo.odd?.name || '',
+      description: mo.odd?.description || '',
+      category: mo.odd?.category || '',
+      color: mo.odd?.color || '',
+      icon: mo.odd?.icon || '',
     })) || [],
     stats: {
       totalRegistrations,
